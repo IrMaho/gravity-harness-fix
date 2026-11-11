@@ -73,3 +73,4 @@ agile-worktree.bat cleanup C:\path\to\repo --delete-branches
 - تسجّل الإضافة تلقائياً أي أخطاء جديدة أو محاولات محجوبة داخل **`logs/session-issues.jsonl`** وملف الملخص **`logs/latest-summary.md`** (مستثناة في `.gitignore` لحماية خصوصيتك).
 - انقر نقراً مزدوجاً على **`audit_all_conversations.bat`** أو اطلب من الوكيل مراجعة السجلات لإضافة قواعد واختبارات جديدة.
 - للإزالة الكاملة استخدم **`uninstall.bat`**.
+
