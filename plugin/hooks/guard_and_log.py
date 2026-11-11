@@ -295,11 +295,11 @@ def _handle_pre_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]:
             _save_state(logs_dir, conv_id, state)
             return {"decision": "deny", "reason": reason}
 
-        if re.search(r"\b(python3?|py|uv)\b[^\n;]*export_snapshot\b", low) and not any(
+        if re.search(r"\b(python3?|py|uv)\b[^\n;]*(db_export|dump_table|full_export)\b", low) and not any(
             f in low for f in ("--run-id", "--limit", "--dry-run", "--help", " -h")
         ):
             reason = (
-                "Unguarded export_snapshot detected without --run-id, --limit, or --dry-run. "
+                "Unguarded full DB export detected without --run-id, --limit, or --dry-run. "
                 "Add --run-id / --limit to prevent slow full-table dumps, or approve explicitly."
             )
             _append_issue(
@@ -307,7 +307,7 @@ def _handle_pre_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]:
                 payload,
                 severity="prevented",
                 category="unguarded_export_prompt",
-                signature="export_snapshot_no_filter",
+                signature="db_export_no_filter",
                 detail=cmd[:200],
                 hint="Always scope live DB exports with --run-id or --limit.",
                 state=state,
@@ -315,7 +315,7 @@ def _handle_pre_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]:
             _save_state(logs_dir, conv_id, state)
             return {"decision": "ask", "reason": reason}
 
-        if re.search(r"\b(python3?|py|uv)\b[^\n;]*gate\.py\b[^\n;]*--ci\b", low):
+        if re.search(r"\b(python3?|py|uv)\b[^\n;]*(ci_gate|run_ci)\.py\b[^\n;]*--ci\b", low):
             gate_ts = float(state.get("gate_running_ts") or 0.0)
             if state.get("last_pytest_failed") or (gate_ts > 0 and now - gate_ts < 1200):
                 reason = (
@@ -513,7 +513,7 @@ def _handle_post_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]
     elif tool_name == "run_command":
         cmd = str(args.get("CommandLine") or "")
         low = cmd.lower()
-        if "gate.py" in low and "--ci" in low:
+        if ("ci_gate.py" in low or "run_ci.py" in low) and "--ci" in low:
             state["gate_running_ts"] = 0.0
         if err:
             first_tok = cmd.strip().lower()

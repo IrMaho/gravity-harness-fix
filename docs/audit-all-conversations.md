@@ -1,6 +1,6 @@
 # Empirical Audit of 444 Antigravity Transcripts & `/agile-swarm` Benchmark
 
-Generated empirically across **13 isolated Antigravity `.gemini` roots** using [`scripts/audit_transcripts.py`](../scripts/audit_transcripts.py) *(all client repository names, local usernames, and prompt texts anonymized for public release)*.
+Generated empirically across **13 isolated Antigravity `.gemini` roots** using [`scripts/audit_transcripts.py`](../scripts/audit_transcripts.py) *(all private repository names, local usernames, and prompt texts anonymized for public release)*.
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: agile-swarm
 description: >-
-  Fast single-account (Plan B) agile parallel execution workflow inspired by multi-worktree engineering velocity without coordinator or interviewer overhead. Use when the user invokes /agile-swarm, asks to work in parallel / agile / like the employer, or gives a multi-part feature, bugfix wave, or refactor that can split cleanly into 2-3 independent slices and small PRs.
+  Fast single-account (Plan B) agile parallel execution workflow inspired by multi-worktree engineering velocity without coordinator or interviewer overhead. Use when the user invokes /agile-swarm, asks to work in parallel / agile, or gives a multi-part feature, bugfix wave, or refactor that can split cleanly into 2-3 independent slices and small PRs.
 ---
 
 # Agile Swarm — Fast Single-Account Parallel Execution (Plan B)
@@ -13,7 +13,7 @@ Ship like a parallel engineering team from a **single Antigravity account** with
 1. **Zero Coordinator / Interviewer Overhead:** Do NOT invoke built-in `/teamwork`. You (the main agent) act as the lean Tech Lead: split the work in `<2` minutes and launch workers immediately. Only ask the user if an owner-reserved requirement is genuinely blocked.
 2. **Respect Plan B API Quota (`<= 3` concurrent workers):** Never spawn `>= 4` coding workers simultaneously on one account (transcript telemetry shows high concurrent bursts cause ~49% subagent stream/API errors). Sweet spot: **2–3 concurrent workers**.
 3. **Strict Isolation (`Workspace="share"`):** Every parallel coding subagent MUST run with `Workspace="share"` (Antigravity's native git-worktree mode) on its own branch `agile/<slice-slug>`. NEVER launch parallel code writers with `Workspace="inherit"`. Use `TypeName="research"` + `Model="flash"` for read-only parallel searches.
-4. **WS1 vs WS3 Concurrency Gate:**
+4. **Modular vs Shared-Resource Concurrency Gate:**
    - **Disjoint modules/files/screens/tests:** Launch **2–3 parallel Code Workers** (`Workspace="share"`).
    - **Single shared core file or live database/state lock:** Keep **1 Code Writer**, and run **1 parallel Support Worker** (unit test writer, diff reviewer, or research audit) on `Workspace="share"`.
 5. **Fast Targeted Tests Inside Slices, Heavy CI Once at Integration:** Slices run `5–30s` unit/widget tests before committing; heavy multi-minute Docker/Postgres gates run once after integration (or in a separate sibling worktree via `./scripts/worktree_team.py`).
@@ -53,8 +53,8 @@ As workers finish:
    git diff --stat HEAD...agile/<slice-slug>
    ```
 2. Spot-check diffs (or launch one `flash` review pass) for regressions, duplicate helpers, broken imports, or out-of-scope edits.
-3. **Deliver in Employer Style (choose per user intent):**
-   - **Independent Small PRs:** Push each verified slice branch (`git push -u origin agile/<slice-slug>`) and open focused small PRs one by one so the client/reviewer sees rapid progress.
+3. **Deliver in Clean PR Waves (choose per user intent):**
+   - **Independent Small PRs:** Push each verified slice branch (`git push -u origin agile/<slice-slug>`) and open focused small PRs one by one so reviewers see rapid progress.
    - **Integrated Feature Branch:** Cleanly `git merge --no-ff agile/<slice-slug>` (or `cherry-pick`) into the main feature branch, resolve interface wiring once, run the integration test suite once, and clean up temporary `agile/*` branches.
 
 ---

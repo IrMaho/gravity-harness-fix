@@ -82,7 +82,7 @@ class GuardHookTests(unittest.TestCase):
     def test_unguarded_export_and_grep_false_positive_filter(self) -> None:
         grep_ok = {
             **self.base_payload,
-            "toolCall": {"name": "run_command", "args": {"CommandLine": "rg -n export_snapshot services/"}},
+            "toolCall": {"name": "run_command", "args": {"CommandLine": "rg -n db_export scripts/"}},
         }
         self.assertEqual(guard_and_log._handle_pre_tool(grep_ok, self.logs_dir)["decision"], "allow")
 
@@ -90,7 +90,7 @@ class GuardHookTests(unittest.TestCase):
             **self.base_payload,
             "toolCall": {
                 "name": "run_command",
-                "args": {"CommandLine": "python -m services.catalogue.ingestion.export_snapshot --source ba"},
+                "args": {"CommandLine": "python -m app.tools.db_export --all"},
             },
         }
         self.assertEqual(guard_and_log._handle_pre_tool(unsafe_export, self.logs_dir)["decision"], "ask")
@@ -99,7 +99,7 @@ class GuardHookTests(unittest.TestCase):
             **self.base_payload,
             "toolCall": {
                 "name": "run_command",
-                "args": {"CommandLine": "python -m services.catalogue.ingestion.export_snapshot --run-id ba-1"},
+                "args": {"CommandLine": "python -m app.tools.db_export --run-id batch-1"},
             },
         }
         self.assertEqual(guard_and_log._handle_pre_tool(safe_export, self.logs_dir)["decision"], "allow")

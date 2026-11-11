@@ -33,7 +33,7 @@ We ran a forensic analyzer ([`scripts/audit_transcripts.py`](scripts/audit_trans
 
 ### 1. `/agile-swarm` — Fast Single-Account Parallel Teamwork (Plan B)
 
-Replaces slow 400-step coordinator ceremonies with lean **employer-style multi-worktree execution** from a **single Antigravity account**:
+Replaces slow 400-step coordinator ceremonies with lean **multi-worktree engineering velocity** from a **single Antigravity account**:
 
 - **Zero coordinator/interview overhead:** The lead agent triages in `<2` minutes with strict **disjoint file ownership** and interface contracts.
 - **Native isolation (`Workspace="share"`):** Spawns **2–3 concurrent `agile-worker` subagents** in isolated shared-git workspaces (`agile/<slice-slug>`), preventing shared-directory overwrites and API rate-limit collapse.
@@ -53,7 +53,7 @@ Built a complete **10-page Material 3 Flutter application** (`Dashboard`, `Proje
 | **API backoff during worker sprint** | `22.7` minutes | **`0.0` minutes** |
 | **Merge & final verification** | Shared-dir collisions | **`0` conflicts**, `flutter analyze`: `0 issues`, `11/11` tests pass |
 
-*(Note: Greenfield modular apps parallelize 3-way cleanly; tasks sharing a single live database/core pipeline automatically drop to `1 Writer + 1 Parallel Reviewer/Tester` via the skill's WS1-vs-WS3 gate.)*
+*(Note: Greenfield modular apps parallelize 3-way cleanly; tasks sharing a single live database/core pipeline automatically drop to `1 Writer + 1 Parallel Reviewer/Tester` via the skill's shared-resource concurrency gate.)*
 
 ---
 
@@ -114,7 +114,7 @@ python3 scripts/install_harness.py --uninstall
 ### فارسی (خلاصه سریع)
 
 * **نصب و آپدیت با یک کلیک:** فایل [`install.bat`](install.bat) را دوبار کلیک کنید تا پلاگین روی تمام پروفایل‌های Antigravity نصب شود، انکودینگ `UTF-8` ویندوز و `PATH` مربوط به `uv` در WSL2 تنظیم شود و تست زنده پاس شود. برای راهنمای کامل فارسی ببینید: [**`docs/README.fa.md`**](docs/README.fa.md).
-* **تیم‌ورک سریع مثل کارفرما روی یک اکانت (`/agile-swarm`):** بدون اتلاف `۴۰۰` استپ برای Coordinator، کار را با فایل‌مالکیت مجزا بین `۲` تا `۳` ورکر موازی روی `Workspace="share"` می‌شکند و در بنچمارک واقعی **اپ فلاتری ۱۰ صفحه‌ای (`۵,۸۰۴` خط کد + `۱۱/۱۱` تست پاس)** کل فرآیند در **`۱۲.۳` دقیقه** با **صفر کانفلیکت** و **صفر دقیقه‌ی قطع API** تمام شد.
+* **تیم‌ورک موازی سریع روی یک اکانت (`/agile-swarm`):** بدون اتلاف `۴۰۰` استپ برای Coordinator، کار را با فایل‌مالکیت مجزا بین `۲` تا `۳` ورکر موازی روی `Workspace="share"` می‌شکند و در بنچمارک واقعی **اپ فلاتری ۱۰ صفحه‌ای (`۵,۸۰۴` خط کد + `۱۱/۱۱` تست پاس)** کل فرآیند در **`۱۲.۳` دقیقه** با **صفر کانفلیکت** و **صفر دقیقه‌ی قطع API** تمام شد.
 * **مراقب همیشه‌فعال (`logs/` + `gravity-session-doctor`):** تمام باگ‌ها، لوپ‌های polling، ادیت‌های تکراری و خطاهای دستور به‌صورت خودکار لاگ و بلاک می‌شوند تا هر بار با هم بررسی‌شان کنیم.
 
 ### العربية (ملخص سريع)
