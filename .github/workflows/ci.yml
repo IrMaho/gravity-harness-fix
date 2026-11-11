@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Configure git identity for worktree tests
+        run: |
+          git config --global user.name "CI Runner"
+          git config --global user.email "ci@example.com"
+      - name: Run unit & hook integration tests
+        run: python -X utf8 -m unittest discover -s tests -p "test_*.py" -v

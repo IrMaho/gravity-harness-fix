@@ -1,0 +1,13 @@
+# Local live telemetry & temporary state (never leak private local logs when sharing)
+logs/*
+!logs/.gitkeep
+docs/raw_audit.json
+
+# OS / IDE / Python artifacts
+.DS_Store
+Thumbs.db
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
