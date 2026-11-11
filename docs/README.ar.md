@@ -68,6 +68,22 @@ agile-worktree.bat cleanup C:\path\to\repo --delete-branches
 
 ---
 
+## حزمة أوامر السلاش الهندسية المتقدمة (`/pro-dev` Suite)
+
+إلى جانب [`/agile-swarm`](../plugin/skills/agile-swarm/SKILL.md) و[`/gravity-session-doctor`](../plugin/skills/gravity-session-doctor/SKILL.md)، يضم المكون الإضافي **7 مهارات وأوامر سلاش احترافية** مع سكريبتات فحص بايثون حتمية (تُحمَّل عند الطلب فقط دون استهلاك السياق):
+
+| الأمر | المهمة | أداة التحقق المرفقة |
+|---|---|---|
+| **`/pro-dev`** | المنسّق الرئيسي لدورة الهندسة الكاملة والتوجيه نحو التوازي عبر `/agile-swarm` | بوابات جودة موحدة وفصل الحقائق عن الاستنتاج |
+| **`/repo-onboard`** | استكشاف المشاريع الجديدة وبناء ملف الذاكرة الحي `PROJECT_INTELLIGENCE.md` | فحص مسبق من 9 نقاط وبوابة قرار Option A/B |
+| **`/forensic-audit`** | تدقيق جنائي معزول عبر `git worktree` في 14 مجالاً دون المساس بالكود الأصلي | مولّد تقرير HTML تفاعلي عبر [`generate_audit_report.py`](../plugin/skills/forensic-audit/scripts/generate_audit_report.py) |
+| **`/harden-fix`** | تصنيف `Cat A/B/C` وإصلاح الجذور باختبارات مسبقة ومراجعة ثانية مستقلة | تتبّع القياسات قبل/بعد ومنع التراجعات |
+| **`/lossless-modularize`** | تقسيم الملفات الضخمة إلى وحدات SOLID دون فقدان سطر أو رمز برمجي (`<= 400` سطر) | مدقق [`conservation_audit.py`](../plugin/skills/lossless-modularize/scripts/conservation_audit.py) |
+| **`/figma-to-prod`** | تحويل Figma MCP إلى Flutter أو React+TS مع حفظ ملفات `.svg` الخام وحماية الحالات | مدقق [`verify_figma_ui.py`](../plugin/skills/figma-to-prod/scripts/verify_figma_ui.py) |
+| **`/truthful-readme`** | بناء `README.md` موثّق بالبراهين ومخططات Mermaid ودليل ملاحة للوكلاء | مدقق [`verify_readme.py`](../plugin/skills/truthful-readme/scripts/verify_readme.py) |
+
+---
+
 ## المراقبة المستمرة والتحسين (`gravity-session-doctor`)
 
 - تسجّل الإضافة تلقائياً أي أخطاء جديدة أو محاولات محجوبة داخل **`logs/session-issues.jsonl`** وملف الملخص **`logs/latest-summary.md`** (مستثناة في `.gitignore` لحماية خصوصيتك).

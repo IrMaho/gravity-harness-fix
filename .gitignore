@@ -2,6 +2,8 @@
 logs/*
 !logs/.gitkeep
 docs/raw_audit.json
+# Local raw prompt drafts containing machine paths/notes (compiled into plugin/skills/)
+prompt/
 
 # OS / IDE / Python artifacts
 .DS_Store

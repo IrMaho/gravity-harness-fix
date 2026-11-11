@@ -22,3 +22,14 @@ These global guardrails are active across all conversations via the `gravity-har
 - Lifecycle hooks in this plugin automatically record tool errors, quoting crashes, polling attempts, read thrashing, `edit_file` mismatches, slow commands, API retries, and premature stops into the shared `gravity-harness-fix` log directory.
 - When an unrecognized recurring friction occurs during a session—or when the user asks to inspect problems, audit past transcripts, or update harness fixes—activate the `gravity-session-doctor` skill to inspect the logs and propose a permanent fix in the harness repo.
 
+## 4. Pro Engineering Lifecycle Slash Commands (`/pro-dev` Suite)
+
+- Use **`/pro-dev`** as the unified orchestrator across complex tasks, or invoke focused slash skills directly on demand (loaded lazily via progressive disclosure):
+  - **`/repo-onboard`**: Discover unknown repos & maintain `.agents/memory/PROJECT_INTELLIGENCE.md`.
+  - **`/forensic-audit`**: Isolated worktree audit across 14 domains + standalone interactive `PROJECT_AUDIT_REPORT.html`.
+  - **`/harden-fix`**: Category A/B/C triage, root-cause fixes, `/agile-swarm` parallel slices, second-pass audit.
+  - **`/lossless-modularize`**: Zero-loss SOLID split of large files verified by `conservation_audit.py` (`<= 400` lines).
+  - **`/figma-to-prod`**: Figma MCP -> Flutter or React+TS UI, centralized raw `.svg` preservation, state safety (`verify_figma_ui.py`).
+  - **`/truthful-readme`**: Evidence-verified README, Mermaid diagrams, AI map & broken-link gate (`verify_readme.py`).
+  - **`/agile-swarm`**: Fast Plan B parallel execution (`<= 3` `Workspace: "share"` workers on disjoint slices).
+

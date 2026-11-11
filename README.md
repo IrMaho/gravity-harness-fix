@@ -68,7 +68,21 @@ Built a complete **10-page Material 3 Flutter application** (`Dashboard`, `Proje
 
 ---
 
-### 3. Always-On Telemetry & Doctor Skill ([`gravity-session-doctor`](plugin/skills/gravity-session-doctor/SKILL.md))
+### 3. Pro Engineering Slash-Command Suite ([`/pro-dev`](plugin/skills/pro-dev/SKILL.md) + 6 Specialized Skills)
+
+Distilled into crisp, zero-bloat Antigravity skills (loaded via progressive disclosure only when invoked) with executable Python verification gates:
+
+| Slash Command | Purpose | Built-In Deterministic Script / Gate |
+|---|---|---|
+| **`/pro-dev`** | Unified orchestrator routing across onboarding, audit, repair, modularization, UI, docs & `/agile-swarm` | Coordinates full pipeline cleanly |
+| **`/repo-onboard`** | Discover unknown repos & maintain living `.agents/memory/PROJECT_INTELLIGENCE.md` | Parallel scan + 9-point preflight |
+| **`/forensic-audit`** | Isolated worktree audit across 14 domains (`FACT` vs `INFERENCE`) -> interactive HTML dashboard | [`generate_audit_report.py`](plugin/skills/forensic-audit/scripts/generate_audit_report.py) |
+| **`/harden-fix`** | Category A/B/C triage, root-cause fixes, Git checkpoints, second-pass independent audit | Repair Registry + before/after deltas |
+| **`/lossless-modularize`** | Split large monoliths without losing lines/symbols or breaking APIs (`<= 400` lines) | [`conservation_audit.py`](plugin/skills/lossless-modularize/scripts/conservation_audit.py) |
+| **`/figma-to-prod`** | Figma MCP -> Flutter or React+TS UI, raw centralized `.svg` assets, state/variant safety | [`verify_figma_ui.py`](plugin/skills/figma-to-prod/scripts/verify_figma_ui.py) |
+| **`/truthful-readme`** | Evidence-verified README builder with Mermaid diagrams, AI guide & scaling profiles | [`verify_readme.py`](plugin/skills/truthful-readme/scripts/verify_readme.py) |
+
+### 4. Always-On Telemetry & Doctor Skill ([`gravity-session-doctor`](plugin/skills/gravity-session-doctor/SKILL.md))
 
 - Automatically writes structured anomalies and prevented anti-patterns to `logs/session-issues.jsonl` + a human-readable dashboard in `logs/latest-summary.md` (gitignored so local logs stay private).
 - Double-click [`audit_all_conversations.bat`](audit_all_conversations.bat) or ask Antigravity *"Inspect gravity harness logs"* to inspect anomalies, re-scan transcripts, add regression tests, and update all profiles with one click.
@@ -143,12 +157,21 @@ gravity-harness-fix/
 │   ├── rules/AGENTS.md                   # Compact always-on execution & Plan B swarm rules
 │   └── skills/
 │       ├── agile-swarm/                  # Plan B fast parallel teamwork skill + worktree CLI
+│       ├── pro-dev/                      # Master lifecycle router & quality bar
+│       ├── repo-onboard/                 # Structured onboarding & PROJECT_INTELLIGENCE.md
+│       ├── forensic-audit/               # Isolated audit + HTML dashboard generator
+│       ├── harden-fix/                   # Cat A/B/C root-cause hardening & 2nd-pass audit
+│       ├── lossless-modularize/          # Zero-loss SOLID split + conservation verifier
+│       ├── figma-to-prod/                # Figma MCP -> Flutter/React UI + raw SVG verifier
+│       ├── truthful-readme/              # Evidence-verified README + link/anchor verifier
 │       └── gravity-session-doctor/       # Live telemetry inspector & regression workflow
 ├── scripts/
 │   ├── install_harness.py                # Cross-profile installer, backup & live smoke tester
 │   ├── audit_transcripts.py              # Multi-home forensic transcript scanner
 │   └── _find_python.bat                  # Windows Store alias-safe Python 3 locator
-├── tests/test_harness_guards.py          # Automated regression suite (13 tests)
+├── tests/
+│   ├── test_harness_guards.py            # Hook guard & installer regression suite
+│   └── test_pro_dev_skills.py            # Skill integrity & verifier script tests
 ├── install.bat                           # Double-click Windows installer / updater
 ├── uninstall.bat                         # Clean Windows uninstaller
 ├── audit_all_conversations.bat           # Double-click log viewer & transcript auditor

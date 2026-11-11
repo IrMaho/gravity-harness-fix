@@ -71,6 +71,22 @@ agile-worktree.bat cleanup C:\path\to\repo --delete-branches
 
 ---
 
+## مجموعه دستورات اسلش مهندسی حرفه‌ای (`/pro-dev` Suite)
+
+علاوه بر [`/agile-swarm`](../plugin/skills/agile-swarm/SKILL.md) و [`/gravity-session-doctor`](../plugin/skills/gravity-session-doctor/SKILL.md)، ۷ اسکیل و اسلش‌کامند تخصصی با **اسکریپت‌های بررسی قطعی پایتون** به پلاگین اضافه شده‌اند (فقط هنگام فراخوانی لود می‌شوند تا کانتکست شلوغ نشود):
+
+| دستور اسلش | کاربرد | ابزار / خروجی خودکار |
+|---|---|---|
+| **`/pro-dev`** | ارکستراتور اصلی چرخه مهندسی (مسیریابی بین آنبورد، ممیزی، فیکس، ماژولار، UI، داکیومنت و `/agile-swarm`) | کنترل کیفیت یکپارچه + تفکیک `FACT` و `INFERENCE` |
+| **`/repo-onboard`** | شناخت سریع یا عمیق مخزن جدید و نگه‌داری حافظهٔ زنده در `PROJECT_INTELLIGENCE.md` | چک‌لیست ۹گانه پیش از هر تسک + تصمیم‌گیری Option A/B |
+| **`/forensic-audit`** | ممیزی ایزوله روی `git worktree` در ۱۴ محور بدون دست‌زدن به کد اصلی | تولید خودکار گزارش HTML تعاملی (`PROJECT_AUDIT_REPORT.html`) |
+| **`/harden-fix`** | دسته‌بندی `Cat A/B/C`، رفع ریشه‌ای باگ‌ها با تست و ممیزی مستقل مرحلهٔ دوم | اجرای موازی Cat A + مقایسه عددی قبل و بعد |
+| **`/lossless-modularize`** | شکستن فایل‌های سنگین و مونولیت با حفظ `100%` منطق، نمادها و API عمومی | اسکریپت [`conservation_audit.py`](../plugin/skills/lossless-modularize/scripts/conservation_audit.py) |
+| **`/figma-to-prod`** | تبدیل Figma MCP به کد فلاتر یا React+TS با پکیج متمرکز `.svg` و حفظ stateهای صفحه | اسکریپت [`verify_figma_ui.py`](../plugin/skills/figma-to-prod/scripts/verify_figma_ui.py) |
+| **`/truthful-readme`** | نگارش `README.md` کاملاً مبتنی بر شواهد مخزن با دیاگرام Mermaid و راهنمای ایجنت | اسکریپت [`verify_readme.py`](../plugin/skills/truthful-readme/scripts/verify_readme.py) |
+
+---
+
 ## عیب‌یابی مستمر (`gravity-session-doctor`)
 
 - خطاها، ادیت‌های ناموفق، لوپ‌ها و مشکلات جدید به‌طور خودکار در مسیر امن **`logs/session-issues.jsonl`** و **`logs/latest-summary.md`** ثبت می‌شوند (در `.gitignore` مخفی است تا هیچ دیتای شخصی به گیت‌هاب نرود).
