@@ -48,3 +48,4 @@ Before writing UI code, lock these 4 parameters explicitly from the host reposit
    ```
 
    Then run full stack static checks + tests (`flutter analyze && flutter test` or `npx tsc --noEmit && npm test`). Report strictly verified layout, asset, state preservation, and any items requiring human visual review.
+

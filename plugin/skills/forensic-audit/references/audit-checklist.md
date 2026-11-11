@@ -19,3 +19,4 @@ Use only applicable domains for the target stack (skip N/A infrastructure sectio
     - Every finding has exact `location`, `fact`, `inference`, `root_cause`, `recommendation`.
     - Zero duplicate findings; zero unverified guesses promoted to `CONFIRMED`.
     - `limitations` lists every area inaccessible during the audit.
+

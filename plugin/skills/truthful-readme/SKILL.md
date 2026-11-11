@@ -38,3 +38,4 @@ Check [references/readme-templates.md](./references/readme-templates.md) for sec
    ```
 
    Also re-run verification on any localized docs (`docs/README.fa.md`, etc.) and verify documented Quick Start / test commands actually work. Fix all `broken_links` and `placeholders` before declaring Done.
+

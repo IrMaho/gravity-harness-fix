@@ -40,3 +40,4 @@ Updated: <YYYY-MM-DD> · Commit: `<short-sha>` · Validation Baseline: `<PASS/FA
 ## 8. Open Human Decisions (Option A/B) & Assumptions Log
 - Record resolved assumptions & corrections so stale beliefs never persist.
 ```
+

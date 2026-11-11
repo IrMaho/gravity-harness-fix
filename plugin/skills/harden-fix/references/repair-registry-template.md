@@ -13,3 +13,4 @@ Track every defect cleanly during `/harden-fix` (in memory/Artifact or scratch t
 2. Are all public APIs/schemas/configs backwards-compatible unless explicitly authorized under Category C?
 3. Did static analyzers (`flutter analyze`, `tsc --noEmit`, `eslint`, `ruff`), security checks, and full integration tests run AFTER the final edit?
 4. Do Before/After counts match actual command outputs from this session?
+

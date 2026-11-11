@@ -56,3 +56,4 @@ Use this skill whenever a source file exceeds clean maintainability bounds (`> 4
 ## Final Traceability Report
 
 Provide concisely: Original vs Final file metrics, Symbol Migration Table (`Original -> New Module`), SOLID/OOP boundaries established, Conservation Script Output (`PASS`), and test/analyzer proof.
+

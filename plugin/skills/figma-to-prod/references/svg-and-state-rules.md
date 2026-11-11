@@ -25,3 +25,4 @@ Before modifying an existing page/component when implementing a Figma frame:
 - [ ] Zero manual `Path()` icon reconstruction or feature-scattered inline `<svg>`.
 - [ ] All modified UI files `<= 400` lines; existing unselected states verified intact.
 - [ ] Story/preview updated if Storybook/Widgetbook is active in the workspace.
+

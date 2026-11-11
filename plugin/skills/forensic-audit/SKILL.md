@@ -48,3 +48,4 @@ Keep chat output crisp:
 2. Severity breakdown (`CRITICAL / HIGH / MEDIUM / LOW / INFO`) & Baseline check table
 3. Top 3–10 verified findings + top strengths
 4. Explicit Audit Limitations & Recommended Next Step (e.g., `/harden-fix` or `/lossless-modularize`)
+

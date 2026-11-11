@@ -47,3 +47,4 @@ When the user invokes `/pro-dev` for a complex task or new project milestone:
    - Shipping or updating repo documentation? Run **`/truthful-readme`**.
 3. **Parallelize Safely:** Whenever an implementation or Category-A repair plan splits into **2–3 disjoint module slices** with non-overlapping file ownership, launch Plan B **`/agile-swarm`** workers (`Workspace: "share"`), integrate on main branch cleanly, and re-test.
 4. **Final Quality Gate & Bilingual Reporting:** Run all relevant test + script checks after final edits, update living memory if architecture shifted, and present a concise summary (matching the user's conversation language cleanly unless project conventions specify English).
+
