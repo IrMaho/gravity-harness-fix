@@ -93,6 +93,16 @@ TOOLS: list[dict[str, Any]] = [
         },
         ["workspace"],
     ),
+    _tool(
+        "context_budget",
+        "Inspect real-time conversation context token volume, usage %, and active isolated task worktrees.",
+        {
+            "conversation_id": {"type": "string", "description": "Optional conversation ID."},
+            "max_tokens": {"type": "integer", "default": 200000, "description": "Maximum context token capacity."},
+            "generate_html": {"type": "boolean", "default": False, "description": "Generate standalone interactive HTML cockpit."},
+        },
+        ["workspace"],
+    ),
 ]
 
 
@@ -185,6 +195,22 @@ def _call_tool(name: str, args: dict[str, Any]) -> Any:
             limit=int(args.get("limit") or 10),
         )
         return _format_rows(engine, rows, fmt)
+
+    if name == "context_budget":
+        cockpit_dir = PLUGIN_ROOT / "skills" / "context-guard" / "scripts"
+        if str(cockpit_dir) not in sys.path:
+            sys.path.insert(0, str(cockpit_dir))
+        import context_cockpit
+        rep = context_cockpit.analyze_conversation_context(
+            conv_id=args.get("conversation_id"),
+            max_tokens=int(args.get("max_tokens") or 200000),
+            workspace=Path(workspace) if workspace else None,
+        )
+        if args.get("generate_html"):
+            html_path = (Path(workspace) if workspace else Path.cwd()) / "CONTEXT_COCKPIT.html"
+            context_cockpit.generate_html_cockpit(rep, html_path)
+            rep["html_path"] = str(html_path)
+        return rep
 
     raise ValueError(f"Unknown tool: {name}")
 

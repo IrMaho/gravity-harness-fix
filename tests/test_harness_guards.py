@@ -15,11 +15,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "plugin" / "hooks"))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 sys.path.insert(0, str(REPO_ROOT / "plugin" / "skills" / "agile-swarm" / "scripts"))
+sys.path.insert(0, str(REPO_ROOT / "plugin" / "skills" / "context-guard" / "scripts"))
 
 import guard_and_log  # noqa: E402
 import install_harness  # noqa: E402
 import audit_transcripts  # noqa: E402
 import worktree_team  # noqa: E402
+import context_cockpit  # noqa: E402
 
 
 class GuardHookTests(unittest.TestCase):
@@ -379,6 +381,45 @@ class InstallerAndAuditorTests(unittest.TestCase):
 
             # Cleanup
             worktree_team.cleanup_worktrees(str(repo), force=True, delete_branches=True)
+
+    def test_context_cockpit_and_80_percent_guard(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            brain = Path(td) / "brain" / "conv-test-cockpit" / ".system_generated" / "logs"
+            brain.mkdir(parents=True, exist_ok=True)
+            tf = brain / "transcript.jsonl"
+
+            # Case 1: Healthy context (40k tokens / 200k = 20%)
+            steps_healthy = [
+                {"step_index": 0, "type": "USER_INPUT", "content": "hi"},
+                {"step_index": 1, "type": "PLANNER_RESPONSE", "input_tokens": 35000, "output_tokens": 5000},
+            ]
+            tf.write_text("\n".join(json.dumps(s) for s in steps_healthy), encoding="utf-8")
+            rep1 = context_cockpit.analyze_conversation_context(conv_id="conv-test-cockpit", app_data_dir=Path(td), max_tokens=200000)
+            self.assertEqual(rep1["status"], "HEALTHY")
+            self.assertEqual(rep1["usage_pct"], 20.0)
+
+            # Case 2: Critical context exceeding 80% (165k tokens / 200k = 82.5%)
+            steps_critical = [
+                *steps_healthy,
+                {"step_index": 2, "type": "CHECKPOINT"},
+                {"step_index": 3, "type": "ERROR_MESSAGE", "error": "stream timeout"},
+                {"step_index": 4, "type": "PLANNER_RESPONSE", "input_tokens": 160000, "output_tokens": 5000},
+            ]
+            tf.write_text("\n".join(json.dumps(s) for s in steps_critical), encoding="utf-8")
+            rep2 = context_cockpit.analyze_conversation_context(conv_id="conv-test-cockpit", app_data_dir=Path(td), max_tokens=200000)
+            self.assertEqual(rep2["status"], "CRITICAL_THROTTLE_REQUIRED")
+            self.assertEqual(rep2["usage_pct"], 82.5)
+            self.assertEqual(rep2["checkpoint_compactions"], 1)
+            self.assertEqual(rep2["error_steps"], 1)
+
+            # Case 3: HTML cockpit dashboard generation
+            html_out = Path(td) / "COCKPIT.html"
+            context_cockpit.generate_html_cockpit(rep2, html_out)
+            self.assertTrue(html_out.exists())
+            html_content = html_out.read_text(encoding="utf-8")
+            self.assertIn("82.5%", html_content)
+            self.assertIn("CRITICAL", html_content)
+            self.assertIn("Task Context Isolation Matrix", html_content)
 
 
 if __name__ == "__main__":

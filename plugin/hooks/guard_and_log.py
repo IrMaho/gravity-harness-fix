@@ -628,6 +628,28 @@ def _handle_post_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]
             if "pytest" in low or "unittest" in low:
                 state["last_pytest_failed"] = False
 
+    if step_idx > 0 and step_idx % 25 == 0 and int(state.get("last_context_check_step") or 0) < step_idx:
+        state["last_context_check_step"] = step_idx
+        cockpit_dir = PLUGIN_ROOT / "skills" / "context-guard" / "scripts"
+        if str(cockpit_dir) not in sys.path:
+            sys.path.insert(0, str(cockpit_dir))
+        try:
+            import context_cockpit
+            rep = context_cockpit.analyze_conversation_context(conv_id=conv_id, max_tokens=200000)
+            if rep.get("usage_pct", 0) >= 80.0:
+                _append_issue(
+                    logs_dir,
+                    payload,
+                    severity="warning",
+                    category="context_limit_80_percent",
+                    signature=f"tokens_{rep['current_tokens']}",
+                    detail=f"Context utilization reached {rep['usage_pct']}% ({rep['current_tokens']} tokens). High risk of stream EOF/timeout.",
+                    hint="Snapshot state to L2 with memory_checkpoint and compact (/compact) or spawn tasks in isolated worktrees (/agile-swarm).",
+                    state=state,
+                )
+        except Exception:
+            pass
+
     if step_idx > 0 and step_idx % 150 == 0 and int(state.get("last_bloat_step_logged") or 0) < step_idx:
         state["last_bloat_step_logged"] = step_idx
         _append_issue(
@@ -692,6 +714,20 @@ def _handle_session_start(payload: dict[str, Any], logs_dir: Path) -> dict[str, 
                     brief = ""
             if brief:
                 msg = f"{msg}\n[L2 Memory] {brief}"
+
+    conv_id = str(payload.get("conversationId") or "")
+    cockpit_dir = PLUGIN_ROOT / "skills" / "context-guard" / "scripts"
+    if str(cockpit_dir) not in sys.path:
+        sys.path.insert(0, str(cockpit_dir))
+    try:
+        import context_cockpit
+        rep = context_cockpit.analyze_conversation_context(conv_id=conv_id, max_tokens=200000)
+        if rep.get("usage_pct", 0) >= 80.0:
+            msg = f"{msg}\n[Context Guard: 80% Alert] Utilization at {rep['usage_pct']}% ({rep['current_tokens']} tokens). Keep main chat lean: delegate heavy tasks to isolated worktrees (/agile-swarm) or run /compact."
+        elif rep.get("current_tokens", 0) > 0:
+            msg = f"{msg}\n[Context: {rep['current_tokens']:,} tokens ({rep['usage_pct']}%) | Budget Status: {rep['badge']}]"
+    except Exception:
+        pass
     return {
         "injectSteps": [
             {

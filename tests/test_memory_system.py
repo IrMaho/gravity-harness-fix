@@ -80,7 +80,7 @@ class FiveLayerMemoryIntegrationTests(unittest.TestCase):
             resps = {r["id"]: r for r in (json.loads(ln) for ln in proc.stdout.splitlines() if ln.strip())}
             self.assertEqual(len(resps), 7)  # notification did not emit a response
             tool_names = {t["name"] for t in resps[2]["result"]["tools"]}
-            self.assertEqual(tool_names, {"memory_hydrate", "symbol_lookup", "memory_search", "memory_checkpoint", "memory_reindex", "memory_lesson"})
+            self.assertEqual(tool_names, {"memory_hydrate", "symbol_lookup", "memory_search", "memory_checkpoint", "memory_reindex", "memory_lesson", "context_budget"})
 
             sym_payload = json.loads(resps[4]["result"]["content"][0]["text"])
             self.assertFalse(resps[4]["result"]["isError"])
