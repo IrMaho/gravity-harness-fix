@@ -27,7 +27,7 @@
    ```
 2. روی فایل **`install.bat`** دوبار کلیک کنید. این اسکریپت به‌صورت خودکار:
    - تمام پروفایل‌های Antigravity روی سیستم (`%USERPROFILE%\.gemini` و تمام پروفایل‌های ایزوله) را پیدا می‌کند و از تنظیمات قبلی بک‌آپ می‌گیرد.
-   - پلاگین `gravity-harness-fix` (هوک‌ها + رول‌ها + دو اسکیل `agile-swarm` و `gravity-session-doctor`) را نصب و در `config.json` فعال می‌کند.
+   - پلاگین `gravity-harness-fix` (هوک‌ها + رول‌ها + ۱۰ اسکیل تخصصی از جمله `agile-swarm`، `pro-dev`، `memory-sync` و `gravity-session-doctor` + سرور `gravity-memory` MCP) را نصب و در `config.json` فعال می‌کند.
    - متغیرهای محیطی `PYTHONIOENCODING=utf-8` و `PYTHONUTF8=1` را دائمی و مسیر `uv` را در WSL2 تنظیم می‌کند.
    - یک تست دود واقعی از هوک می‌گیرد تا از کارکرد بدون باگ مطمئن شود.
 3. یک **چت جدید در Antigravity باز کنید** (یا IDE را ری‌استارت کنید).
@@ -84,6 +84,19 @@ agile-worktree.bat cleanup C:\path\to\repo --delete-branches
 | **`/lossless-modularize`** | شکستن فایل‌های سنگین و مونولیت با حفظ `100%` منطق، نمادها و API عمومی | اسکریپت [`conservation_audit.py`](../plugin/skills/lossless-modularize/scripts/conservation_audit.py) |
 | **`/figma-to-prod`** | تبدیل Figma MCP به کد فلاتر یا React+TS با پکیج متمرکز `.svg` و حفظ stateهای صفحه | اسکریپت [`verify_figma_ui.py`](../plugin/skills/figma-to-prod/scripts/verify_figma_ui.py) |
 | **`/truthful-readme`** | نگارش `README.md` کاملاً مبتنی بر شواهد مخزن با دیاگرام Mermaid و راهنمای ایجنت | اسکریپت [`verify_readme.py`](../plugin/skills/truthful-readme/scripts/verify_readme.py) |
+| **`/memory-sync`** | حافظه دائمی ۵ لایه ایجنت (`L0`–`L4` + شاردها + `SQLite FTS5` + شاخص AST + سرور MCP) | موتور [`memory_engine.py`](../plugin/skills/memory-sync/scripts/memory_engine.py) |
+
+---
+
+## معماری حافظه هوشمند ۵ لایه و سرور `gravity-memory` MCP (`L0`–`L4`)
+
+برای حذف هدررفت توکن ناشی از خواندن چندباره‌ی فایل‌های بزرگ و فراموشی پس از فشرده‌سازی کانتکست، تمام ابزارهای حافظه بدون وابستگی خارجی (فقط کتابخانه استاندارد پایتون با `SQLite WAL + FTS5`) پیاده‌سازی شده‌اند:
+
+- **`L0` فایل‌های خام (بازه خطی هدفمند):** هوک `PreToolUse` جلوی `read_file` کامل و بدون بازه روی فایل‌های بزرگ‌تر از `260` خط و `2,500` بایت را می‌گیرد و ایجنت را به خواندن بازه‌ای یا استفاده از [`symbol_lookup`](../plugin/mcp/memory_mcp_server.py) هدایت می‌کند.
+- **`L1` نقشه سمبل‌ها (AST + Regex افزایشی):** بعد از هر ویرایش یا ساخت فایل، هوک `PostToolUse` به‌صورت خودکار شاخص سمبل‌ها (`.agents/memory/memory.db`) را از طریق [`memory_indexer.py`](../plugin/skills/memory-sync/scripts/memory_indexer.py) آپدیت نگه می‌دارد تا مختصات دقیق `file:start-end` آماده باشد.
+- **`L2` شاخص فشرده (`<= 60` خط):** کپسول خلاصه [`INDEX.md`](../plugin/skills/memory-sync/SKILL.md) (حداکثر `650` کاراکتر) در شروع سشن (`SessionStart`) به‌صورت خودکار با برچسب `[L2 Memory]` تزریق می‌شود.
+- **`L3` شاردهای موضوعی (`<= 120` خط):** شاردهای تخصصی در `.agents/memory/shards/` (معماری، تصمیم‌ها، خطاها، وضعیت تست) که با `memory_search` (`FTS5` BM25 با fallback روی `LIKE`) قابل جستجو هستند.
+- **`L4` چک‌پوینت سشن و بازیابی خودکار:** ابزار `memory_checkpoint` دستاوردها و گام بعدی را ثبت می‌کند و هوک هر `150` استپ یادآور چک‌پوینت می‌فرستد؛ نصب‌کننده نیز [`mcp_config.json`](../plugin/mcp_config.json) را با مسیر دقیق روی همه پروفایل‌ها تنظیم می‌کند.
 
 ---
 

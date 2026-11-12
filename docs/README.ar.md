@@ -27,7 +27,7 @@
    ```
 2. على **Windows**: انقر نقراً مزدوجاً على **`install.bat`**. سيقوم تلقائياً بـ:
    - اكتشاف جميع ملفات تعريف Antigravity (`%USERPROFILE%\.gemini` وأي بيئات معزولة)، وأخذ نسخة احتياطية.
-   - تثبيت إضافة `gravity-harness-fix` وتفعيلها داخل `config.json`.
+   - تثبيت إضافة `gravity-harness-fix` (بما في ذلك المهارات العشر، حواجز الحماية، وخادم `gravity-memory` MCP) وتفعيلها داخل `config.json`.
    - تثبيت متغيرات `PYTHONIOENCODING=utf-8` و`PYTHONUTF8=1` على ويندوز، وإضافة `uv` إلى مسار WSL2.
    - تشغيل فحص عملي مباشر للحواجز (`Smoke Test`).
 3. افتح **محادثة جديدة في Antigravity** (أو أعد تشغيل المحرر).
@@ -81,6 +81,19 @@ agile-worktree.bat cleanup C:\path\to\repo --delete-branches
 | **`/lossless-modularize`** | تقسيم الملفات الضخمة إلى وحدات SOLID دون فقدان سطر أو رمز برمجي (`<= 400` سطر) | مدقق [`conservation_audit.py`](../plugin/skills/lossless-modularize/scripts/conservation_audit.py) |
 | **`/figma-to-prod`** | تحويل Figma MCP إلى Flutter أو React+TS مع حفظ ملفات `.svg` الخام وحماية الحالات | مدقق [`verify_figma_ui.py`](../plugin/skills/figma-to-prod/scripts/verify_figma_ui.py) |
 | **`/truthful-readme`** | بناء `README.md` موثّق بالبراهين ومخططات Mermaid ودليل ملاحة للوكلاء | مدقق [`verify_readme.py`](../plugin/skills/truthful-readme/scripts/verify_readme.py) |
+| **`/memory-sync`** | ذاكرة دائمة ذكية من 5 طبقات (`L0`–`L4` + شظايا موضوعية + `SQLite FTS5` + فهرس AST + خادم MCP) | محرك [`memory_engine.py`](../plugin/skills/memory-sync/scripts/memory_engine.py) |
+
+---
+
+## معمارية الذاكرة الذكية ذات 5 طبقات وخادم `gravity-memory` MCP (`L0`–`L4`)
+
+لتقليل استهلاك التوكنز الناتج عن إعادة قراءة الملفات الكبيرة ومنع فقدان السياق عند ضغط المحادثات الطويلة، يوفّر المشروع نظام ذاكرة مدمج بالمكتبة القياسية لـ Python (`SQLite WAL + FTS5`) مرتبطاً مباشرة بالحواجز وMCP:
+
+- **`L0` الملفات الخام (قراءة بنطاق أسطر محدّد):** يمنع حاجز `PreToolUse` استدعاءات `read_file` غير المحدّدة بنطاق للملفات التي تتجاوز `260` سطراً و`2,500` بايت، ويوجه الوكيل إلى القراءة الموجّهة أو أداة [`symbol_lookup`](../plugin/mcp/memory_mcp_server.py).
+- **`L1` خريطة الرموز (AST + Regex التزايدي):** يحدّث حاجز `PostToolUse` قاعدة `.agents/memory/memory.db` تلقائياً بعد التعديلات عبر [`memory_indexer.py`](../plugin/skills/memory-sync/scripts/memory_indexer.py) للحفاظ على دقة مواقع `file:start-end`.
+- **`L2` الفهرس المضغوط (`<= 60` سطراً):** حقن كبسولة موجزة (`<= 650` حرفاً) تلقائياً عند `SessionStart` تحت `[L2 Memory]` بدلاً من قراءة سجلات طويلة.
+- **`L3` الشظايا الموضوعية (`<= 120` سطراً لكل ملف):** ملفات منظّمة داخل `.agents/memory/shards/` للبحث الفوري عبر `memory_search` (`FTS5` BM25 مع بديل `LIKE`).
+- **`L4` نقاط الحفظ والاسترجاع (`memory_checkpoint`):** حفظ مخرجات الجلسة والخطوة التالية مع تنبيه استباقي كل `150` خطوة، وضبط [`mcp_config.json`](../plugin/mcp_config.json) بمسارات مطلقة عبر المثبّت.
 
 ---
 

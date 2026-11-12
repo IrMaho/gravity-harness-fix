@@ -287,7 +287,7 @@ def checkpoint_state(
         shard_path, archive_path = mem_dir / f"{slug}.md", mem_dir / f"archive_{slug}.md"
         prev = shard_path.read_text(encoding="utf-8", errors="replace") if shard_path.exists() else f"# {slug.replace('_', ' ').title()}\n\n"
         tag_line = f"Tags: {', '.join(tags)}\n" if tags else ""
-        entry = f"## {state['updated_at']} — {note_title or 'Note'}\n{tag_line}{note_body.strip()}\n\n"
+        entry = f"## {state['updated_at']} — {note_title or 'Note'}\n{tag_line}{(note_body or '').strip()}\n\n"
         shard_path.write_text(prev + ("" if prev.endswith("\n") else "\n") + entry, encoding="utf-8")
         _roll_shard(shard_path, archive_path, slug)
         shard_path_str = str(shard_path)

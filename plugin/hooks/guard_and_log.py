@@ -437,7 +437,7 @@ def _handle_pre_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]:
                         target = cand
             if target.suffix.lower() in _BIG_READ_SOURCE_SUFFIXES and target.is_file():
                 try:
-                    if target.stat().st_size > 5000:
+                    if target.stat().st_size > 2500:
                         with target.open("rb") as f:
                             line_count = sum(1 for _ in f)
                         if line_count > 260:

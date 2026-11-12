@@ -68,7 +68,7 @@ Built a complete **10-page Material 3 Flutter application** (`Dashboard`, `Proje
 
 ---
 
-### 3. Pro Engineering Slash-Command Suite ([`/pro-dev`](plugin/skills/pro-dev/SKILL.md) + 6 Specialized Skills)
+### 3. Pro Engineering & Memory Slash-Command Suite ([`/pro-dev`](plugin/skills/pro-dev/SKILL.md) + 7 Specialized Skills)
 
 Distilled into crisp, zero-bloat Antigravity skills (loaded via progressive disclosure only when invoked) with executable Python verification gates:
 
@@ -81,8 +81,21 @@ Distilled into crisp, zero-bloat Antigravity skills (loaded via progressive disc
 | **`/lossless-modularize`** | Split large monoliths without losing lines/symbols or breaking APIs (`<= 400` lines) | [`conservation_audit.py`](plugin/skills/lossless-modularize/scripts/conservation_audit.py) |
 | **`/figma-to-prod`** | Figma MCP -> Flutter or React+TS UI, raw centralized `.svg` assets, state/variant safety | [`verify_figma_ui.py`](plugin/skills/figma-to-prod/scripts/verify_figma_ui.py) |
 | **`/truthful-readme`** | Evidence-verified README builder with Mermaid diagrams, AI guide & scaling profiles | [`verify_readme.py`](plugin/skills/truthful-readme/scripts/verify_readme.py) |
+| **`/memory-sync`** | Persistent 5-layer agent memory (`L0`–`L4` shards + `SQLite FTS5` + AST symbols + `gravity-memory` MCP) | [`memory_engine.py`](plugin/skills/memory-sync/scripts/memory_engine.py) |
 
-### 4. Always-On Telemetry & Doctor Skill ([`gravity-session-doctor`](plugin/skills/gravity-session-doctor/SKILL.md))
+---
+
+### 4. 5-Layer Smart Memory Architecture & `gravity-memory` MCP Server (`L0`–`L4`)
+
+Eliminates repeated file re-reads, manual chunking, and context-compaction amnesia using pure-Python stdlib storage (`SQLite WAL + FTS5`, AST + regex symbol indexing) wired natively via hooks and MCP:
+
+- **`L0` Raw Files (On-Demand Line-Ranged):** `PreToolUse` blocks un-ranged `read_file` calls on source files larger than `260` lines and `2,500` bytes (`big_unranged_read_blocked`), nudging targeted line ranges or [`symbol_lookup`](plugin/mcp/memory_mcp_server.py).
+- **`L1` Symbol Map (Incremental AST + Regex):** `PostToolUse` incrementally refreshes `.agents/memory/memory.db` via [`memory_indexer.py`](plugin/skills/memory-sync/scripts/memory_indexer.py) after file edits so exact `file:start-end` locations stay fresh.
+- **`L2` Compact Index (`<= 60` lines):** [`INDEX.md`](plugin/skills/memory-sync/SKILL.md) capsule (`~400–650` chars) auto-injected at `SessionStart` (`[L2 Memory]`) instead of re-reading logs or large state docs.
+- **`L3` Topic Shards (`<= 120` lines each):** Focused `.agents/memory/shards/<topic>.md` files (architecture, decisions, errors, test state) queried via `memory_search` (`FTS5` BM25 with `LIKE` fallback).
+- **`L4` Checkpoint Logs & Auto-Hydration:** `memory_checkpoint` persists compact session handoffs and reminds earlier at `150`-step intervals before heavy compaction hits; [`install_harness.py`](scripts/install_harness.py) auto-wires [`mcp_config.json`](plugin/mcp_config.json) with absolute paths across every profile.
+
+### 5. Always-On Telemetry & Doctor Skill ([`gravity-session-doctor`](plugin/skills/gravity-session-doctor/SKILL.md))
 
 - Automatically writes structured anomalies and prevented anti-patterns to `logs/session-issues.jsonl` + a human-readable dashboard in `logs/latest-summary.md` (gitignored so local logs stay private).
 - Double-click [`audit_all_conversations.bat`](audit_all_conversations.bat) or ask Antigravity *"Inspect gravity harness logs"* to inspect anomalies, re-scan transcripts, add regression tests, and update all profiles with one click.
@@ -151,6 +164,8 @@ gravity-harness-fix/
 ├── logs/.gitkeep                         # Local live telemetry directory (jsonl/state gitignored)
 ├── plugin/
 │   ├── plugin.json                       # Antigravity native plugin manifest
+│   ├── mcp_config.json                   # Auto-wired stdio MCP config for gravity-memory
+│   ├── mcp/memory_mcp_server.py          # Stdlib JSON-RPC 2.0 MCP server (5 memory tools)
 │   ├── hooks.json                        # SessionStart / PreToolUse / PostToolUse / Stop hooks
 │   ├── hooks/guard_and_log.py            # Deterministic guardrails & structured telemetry engine
 │   ├── hooks/run_hook.cmd                # Quote-safe Windows hook launcher
@@ -164,6 +179,7 @@ gravity-harness-fix/
 │       ├── lossless-modularize/          # Zero-loss SOLID split + conservation verifier
 │       ├── figma-to-prod/                # Figma MCP -> Flutter/React UI + raw SVG verifier
 │       ├── truthful-readme/              # Evidence-verified README + link/anchor verifier
+│       ├── memory-sync/                  # 5-layer L0-L4 memory engine, AST indexer & /memory-sync skill
 │       └── gravity-session-doctor/       # Live telemetry inspector & regression workflow
 ├── scripts/
 │   ├── install_harness.py                # Cross-profile installer, backup & live smoke tester
@@ -171,7 +187,8 @@ gravity-harness-fix/
 │   └── _find_python.bat                  # Windows Store alias-safe Python 3 locator
 ├── tests/
 │   ├── test_harness_guards.py            # Hook guard & installer regression suite
-│   └── test_pro_dev_skills.py            # Skill integrity & verifier script tests
+│   ├── test_pro_dev_skills.py            # Skill integrity & verifier script tests
+│   └── test_memory_system.py             # MCP stdio roundtrip, L0-L2 hooks & installer tests
 ├── install.bat                           # Double-click Windows installer / updater
 ├── uninstall.bat                         # Clean Windows uninstaller
 ├── audit_all_conversations.bat           # Double-click log viewer & transcript auditor

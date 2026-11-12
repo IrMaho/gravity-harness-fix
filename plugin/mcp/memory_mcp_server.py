@@ -55,7 +55,7 @@ TOOLS: list[dict[str, Any]] = [
         {
             "active_task": {"type": "string"},
             "status": {"type": "string"},
-            "verified_tests": {"type": "array", "items": {"type": "string"}},
+            "verified_tests": {"type": ["string", "array"]},
             "blockers": {"type": "array", "items": {"type": "string"}},
             "next_steps": {"type": "array", "items": {"type": "string"}},
             "note_shard": {"type": "string"},
@@ -122,16 +122,18 @@ def _call_tool(name: str, args: dict[str, Any]) -> Any:
 
     if name == "memory_checkpoint":
         engine.init_memory(workspace)
+        vt_raw = args.get("verified_tests")
+        vt_str = ", ".join(str(x) for x in vt_raw) if isinstance(vt_raw, list) else str(vt_raw or "")
         return engine.checkpoint_state(
             workspace,
-            active_task=args.get("active_task"),
-            status=args.get("status"),
-            verified_tests=args.get("verified_tests"),
+            active_task=str(args.get("active_task") or ""),
+            status=str(args.get("status") or ""),
+            verified_tests=vt_str,
             blockers=args.get("blockers"),
             next_steps=args.get("next_steps"),
-            note_shard=args.get("note_shard"),
-            note_title=args.get("note_title"),
-            note_body=args.get("note_body"),
+            note_shard=str(args.get("note_shard") or ""),
+            note_title=str(args.get("note_title") or ""),
+            note_body=str(args.get("note_body") or ""),
         )
 
     if name == "memory_reindex":

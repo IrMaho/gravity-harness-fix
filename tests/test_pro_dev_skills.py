@@ -36,6 +36,7 @@ class SkillCatalogIntegrityTests(unittest.TestCase):
         "lossless-modularize",
         "figma-to-prod",
         "truthful-readme",
+        "memory-sync",
     }
 
     def test_all_skills_have_valid_frontmatter_and_links(self):
