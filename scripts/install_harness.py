@@ -237,6 +237,24 @@ def _smoke_test_installed_plugin(plugin_dest: Path, python_exe: str, logs_dir: P
                 summary.unlink()
 
 
+def _prune_stale_plugin_files(src: Path, dest: Path) -> None:
+    expected = {p.relative_to(src) for p in src.rglob("*") if "__pycache__" not in p.parts}
+    expected_dirs = {d for rel in expected for d in rel.parents}
+    for cur in sorted(dest.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        rel = cur.relative_to(dest)
+        if "__pycache__" in rel.parts or rel == Path("harness_config.json"):
+            continue
+        try:
+            if cur.is_file() or cur.is_symlink():
+                if rel not in expected:
+                    cur.unlink()
+            elif cur.is_dir():
+                if rel not in expected and rel not in expected_dirs:
+                    cur.rmdir()
+        except OSError:
+            pass  # Fail-safe on Windows when an active IDE/MCP handle locks a running directory
+
+
 def install_all(
     extra_roots: list[str],
     *,
@@ -274,13 +292,15 @@ def install_all(
         if dest.exists():
             backup_dir.mkdir(parents=True, exist_ok=True)
             shutil.copytree(dest, backup_dir / PLUGIN_NAME, dirs_exist_ok=True)
-            shutil.rmtree(dest)
+            # Sync in place instead of rmtree so active Windows IDE/MCP handles never hit WinError 32
 
         shutil.copytree(
             PLUGIN_SRC,
             dest,
+            dirs_exist_ok=True,
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
         )
+        _prune_stale_plugin_files(PLUGIN_SRC, dest)
         _configure_installed_hooks(dest, python_exe)
         _configure_installed_mcp(dest, python_exe)
 
@@ -324,7 +344,8 @@ def uninstall_all(extra_roots: list[str], *, only_explicit: bool = False) -> int
         config_dir = root / "config"
         dest = config_dir / "plugins" / PLUGIN_NAME
         if dest.exists():
-            shutil.rmtree(dest)
+            # Sync in place instead of rmtree so active Windows IDE/MCP handles never hit WinError 32
+            shutil.rmtree(dest, ignore_errors=True)
             removed += 1
             print(f"  [REMOVED] {dest}")
         if (config_dir / "config.json").exists():

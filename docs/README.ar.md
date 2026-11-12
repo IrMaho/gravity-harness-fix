@@ -90,8 +90,8 @@ agile-worktree.bat cleanup C:\path\to\repo --delete-branches
 لتقليل استهلاك التوكنز الناتج عن إعادة قراءة الملفات الكبيرة ومنع فقدان السياق عند ضغط المحادثات الطويلة، يوفّر المشروع نظام ذاكرة مدمج بالمكتبة القياسية لـ Python (`SQLite WAL + FTS5`) مرتبطاً مباشرة بالحواجز وMCP:
 
 - **`L0` الملفات الخام (قراءة بنطاق أسطر محدّد):** يمنع حاجز `PreToolUse` استدعاءات `read_file` غير المحدّدة بنطاق للملفات التي تتجاوز `260` سطراً و`2,500` بايت، ويوجه الوكيل إلى القراءة الموجّهة أو أداة [`symbol_lookup`](../plugin/mcp/memory_mcp_server.py).
-- **`L1` خريطة الرموز (AST + Regex التزايدي):** يحدّث حاجز `PostToolUse` قاعدة `.agents/memory/memory.db` تلقائياً بعد التعديلات عبر [`memory_indexer.py`](../plugin/skills/memory-sync/scripts/memory_indexer.py) للحفاظ على دقة مواقع `file:start-end`.
-- **`L2` الفهرس المضغوط (`<= 60` سطراً):** حقن كبسولة موجزة (`<= 650` حرفاً) تلقائياً عند `SessionStart` تحت `[L2 Memory]` بدلاً من قراءة سجلات طويلة.
+- **`L1` خريطة الرموز (`TOON` + أولوية المعمارية):** تحديث تلقائي لقاعدة `.agents/memory/memory.db` عبر [`memory_indexer.py`](../plugin/skills/memory-sync/scripts/memory_indexer.py) مع ترجيح ملفات النواة فوق الاختبارات (`0.3x`) ودعم إخراج `format="toon"` المضغوط.
+- **`L2` الفهرس المضغوط والدروس المتلاشية:** حقن `[L2 Memory]` مع تحذيرات `Avoid:` المستخرجة من [`memory_lesson`](../plugin/mcp/memory_mcp_server.py) (بنصف عمر `30` يوماً في `LESSONS.md`) تلقائياً عند `SessionStart`.
 - **`L3` الشظايا الموضوعية (`<= 120` سطراً لكل ملف):** ملفات منظّمة داخل `.agents/memory/shards/` للبحث الفوري عبر `memory_search` (`FTS5` BM25 مع بديل `LIKE`).
 - **`L4` نقاط الحفظ والاسترجاع (`memory_checkpoint`):** حفظ مخرجات الجلسة والخطوة التالية مع تنبيه استباقي كل `150` خطوة، وضبط [`mcp_config.json`](../plugin/mcp_config.json) بمسارات مطلقة عبر المثبّت.
 

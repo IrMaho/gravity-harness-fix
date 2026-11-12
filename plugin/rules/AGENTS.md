@@ -38,7 +38,7 @@ These global guardrails are active across all conversations via the `gravity-har
 Keep context lean and token costs flat across long sessions by working from the lightest layer down:
 
 - **L0 — Ranged Source Reads (`<= 200` lines):** Never swallow whole large source files. Always pass explicit `StartLine` and `EndLine` (`<= 200` lines) to `read_file` / `view_file` (un-ranged reads on source files `> 260` lines are blocked).
-- **L1 — Symbol Index (`symbol_lookup` first):** Call MCP `symbol_lookup` (or `rg -n`) to pinpoint exact file and line bounds before reading code; successful edits auto-reindex modified files into `.agents/memory/memory.db`.
-- **L2 — Compact Project Shards (`memory_checkpoint`):** Persist structured decisions, architecture, and handoff state in `.agents/memory/` shards (`<= 120` lines each) via `/memory-sync` / `memory_checkpoint`; `SessionStart` auto-hydrates a compact `[L2 Memory]` brief.
+- **L1 — Symbol Index (`symbol_lookup` first):** Call MCP `symbol_lookup` (prefer `format="toon"` to cut response tokens; production store/service paths auto-rank above tests) before reading code; successful edits auto-reindex modified files into `.agents/memory/memory.db`.
+- **L2 — Compact Project Shards & Decaying Lessons (`memory_checkpoint` / `memory_lesson`):** Persist structured decisions (`conflicts` checked automatically) in shards (`<= 120` lines) and record `dead_end`/`corrected`/`useful` paths via `memory_lesson` (30-day decay, `Avoid:` surfaced automatically at `SessionStart`).
 - **L3 — Full-Text Recall (`memory_search`):** Query project shards and indexed symbols via SQLite FTS5 (`memory_search`) instead of scanning directories or re-reading logs.
 - **L4 — Cold Telemetry (`logs/`):** Raw JSONL telemetry and transcripts live in `logs/` for on-demand auditing (`/gravity-session-doctor`), never loaded into active context by default.

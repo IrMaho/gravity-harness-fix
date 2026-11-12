@@ -12,12 +12,13 @@ from typing import Any
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 ENGINE_DIR = PLUGIN_ROOT / "skills" / "memory-sync" / "scripts"
-SERVER_INFO = {"name": "gravity-memory", "version": "1.0.0"}
+SERVER_INFO = {"name": "gravity-memory", "version": "1.1.0"}
 DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 SUPPORTED_PROTOCOLS = {"2024-11-05", "2025-03-26", "2025-06-18"}
 HYDRATE_EMPTY_MSG = (
     "No .agents/memory initialized yet; call memory_reindex or memory_checkpoint."
 )
+
 
 def _tool(
     name: str, description: str, properties: dict[str, Any], required: list[str]
@@ -39,19 +40,27 @@ TOOLS: list[dict[str, Any]] = [
     _tool("memory_hydrate", "Return compact L2 project memory brief for a workspace.", {}, ["workspace"]),
     _tool(
         "symbol_lookup",
-        "Look up exact file:start-end symbol locations from L1 index.",
-        {"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "default": 10}},
+        "Look up architectural-priority ranked file:start-end symbols (supports format='toon' for token savings).",
+        {
+            "query": {"type": "string"},
+            "limit": {"type": "integer", "minimum": 1, "default": 10},
+            "format": {"type": "string", "enum": ["json", "toon"], "default": "json"},
+        },
         ["workspace", "query"],
     ),
     _tool(
         "memory_search",
-        "BM25 search across L2/L3 memory shards and project docs.",
-        {"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "default": 8}},
+        "BM25 + path-weighted search across shards, LESSONS.md, and docs (supports format='toon').",
+        {
+            "query": {"type": "string"},
+            "limit": {"type": "integer", "minimum": 1, "default": 8},
+            "format": {"type": "string", "enum": ["json", "toon"], "default": "json"},
+        },
         ["workspace", "query"],
     ),
     _tool(
         "memory_checkpoint",
-        "Save L2 active state and optional L3 memory shard note.",
+        "Save L2 state and optional L3 shard note with automatic decision-conflict check.",
         {
             "active_task": {"type": "string"},
             "status": {"type": "string"},
@@ -68,6 +77,20 @@ TOOLS: list[dict[str, Any]] = [
         "memory_reindex",
         "Run fast full or incremental L1+L3 workspace re-index.",
         {"paths": {"type": "array", "items": {"type": "string"}}},
+        ["workspace"],
+    ),
+    _tool(
+        "memory_lesson",
+        "Record or query 30-day decaying experiential lessons (useful, dead_end, corrected).",
+        {
+            "action": {"type": "string", "enum": ["record", "list"], "default": "list"},
+            "outcome": {"type": "string", "enum": ["useful", "dead_end", "corrected"]},
+            "query": {"type": "string"},
+            "paths": {"type": "array", "items": {"type": "string"}},
+            "correction": {"type": "string"},
+            "limit": {"type": "integer", "minimum": 1, "default": 10},
+            "format": {"type": "string", "enum": ["json", "toon"], "default": "json"},
+        },
         ["workspace"],
     ),
 ]
@@ -94,10 +117,15 @@ def _load_memory_engine() -> Any:
         ) from exc
 
 
+def _format_rows(engine: Any, rows: list[dict], fmt: str) -> Any:
+    return engine.memory_insights.to_toon(rows) if fmt == "toon" else rows
+
+
 def _call_tool(name: str, args: dict[str, Any]) -> Any:
     """Dispatch an MCP tool call to memory_engine functions."""
     workspace = str(args.get("workspace") or os.getcwd())
     engine = _load_memory_engine()
+    fmt = str(args.get("format") or "json").lower()
 
     if name == "memory_hydrate":
         try:
@@ -111,14 +139,14 @@ def _call_tool(name: str, args: dict[str, Any]) -> Any:
         if not query:
             raise ValueError("query is required for symbol_lookup")
         limit = int(args.get("limit") or 10)
-        return engine.lookup_symbol(workspace, query, limit=limit)
+        return _format_rows(engine, engine.lookup_symbol(workspace, query, limit=limit), fmt)
 
     if name == "memory_search":
         query = str(args.get("query") or "")
         if not query:
             raise ValueError("query is required for memory_search")
         limit = int(args.get("limit") or 8)
-        return engine.search_memory(workspace, query, limit=limit)
+        return _format_rows(engine, engine.search_memory(workspace, query, limit=limit), fmt)
 
     if name == "memory_checkpoint":
         engine.init_memory(workspace)
@@ -139,6 +167,24 @@ def _call_tool(name: str, args: dict[str, Any]) -> Any:
     if name == "memory_reindex":
         engine.init_memory(workspace)
         return engine.index_workspace(workspace, paths=args.get("paths"))
+
+    if name == "memory_lesson":
+        action = str(args.get("action") or "list").lower()
+        if action == "record":
+            return engine.record_lesson(
+                workspace,
+                outcome=str(args.get("outcome") or ""),
+                query=str(args.get("query") or ""),
+                paths=args.get("paths"),
+                correction=str(args.get("correction") or ""),
+            )
+        rows = engine.list_lessons(
+            workspace,
+            query=str(args.get("query") or ""),
+            outcome=str(args.get("outcome") or ""),
+            limit=int(args.get("limit") or 10),
+        )
+        return _format_rows(engine, rows, fmt)
 
     raise ValueError(f"Unknown tool: {name}")
 

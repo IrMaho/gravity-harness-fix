@@ -18,6 +18,7 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 import memory_indexer  # noqa: E402
+import memory_insights  # noqa: E402
 
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
@@ -32,6 +33,7 @@ _SCHEMA_SQL = (
     "CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file);"
     "CREATE TABLE IF NOT EXISTS docs_chunks (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, heading TEXT NOT NULL, "
     "start_line INTEGER NOT NULL, content TEXT NOT NULL);CREATE INDEX IF NOT EXISTS idx_chunks_source ON docs_chunks(source);"
+    + memory_insights.LESSONS_SCHEMA_SQL
 )
 
 
@@ -146,20 +148,39 @@ def _ensure_indexed(workspace: str | Path, table: str) -> Path:
     return db_path
 
 
+def _symbol_match_tier(name: str, query_low: str) -> int:
+    low = name.lower()
+    if low == query_low:
+        return 0
+    return 1 if low.startswith(query_low) else 2
+
+
 def lookup_symbol(workspace: str | Path, query: str, limit: int = 15) -> list[dict]:
-    """Lookup indexed symbols by name (exact/prefix/substring ranked)."""
+    """Lookup indexed symbols by name, breaking ties with architectural path priority."""
     db_path, q = _ensure_indexed(workspace, "symbols"), query.strip()
     sql = "SELECT name, kind, file, start_line, end_line, signature FROM symbols "
+    fetch_cap = max(limit * 3, limit)
     with _connect(db_path) as conn:
         if not q:
-            rows = conn.execute(sql + "ORDER BY file, start_line LIMIT ?", (limit,)).fetchall()
+            rows = conn.execute(sql + "ORDER BY file, start_line LIMIT ?", (fetch_cap,)).fetchall()
         else:
             rows = conn.execute(
                 sql + "WHERE lower(name) LIKE lower(?) ORDER BY CASE WHEN lower(name)=lower(?) THEN 0 "
                 "WHEN lower(name) LIKE lower(?) THEN 1 ELSE 2 END, length(name), file, start_line LIMIT ?",
-                (f"%{q}%", q, f"{q}%", limit),
+                (f"%{q}%", q, f"{q}%", fetch_cap),
             ).fetchall()
-    return [dict(r) for r in rows]
+    items = [dict(r) for r in rows]
+    q_low = q.lower()
+    items.sort(
+        key=lambda r: (
+            _symbol_match_tier(r["name"], q_low) if q_low else 0,
+            -memory_insights.path_priority(r["file"]),
+            len(r["name"]),
+            r["file"],
+            r["start_line"],
+        )
+    )
+    return items[:limit]
 
 
 def _make_snippet(content: str, tokens: list[str], max_len: int = 260) -> str:
@@ -173,16 +194,22 @@ def _make_snippet(content: str, tokens: list[str], max_len: int = 260) -> str:
     return (snip[: max_len - 3].rstrip() + "...") if start + max_len - 3 < len(flat) else snip[:max_len]
 
 
-def _chunk_hit(row: sqlite3.Row, tokens: list[str], score: float) -> dict:
-    return {"source": row["source"], "heading": row["heading"], "start_line": int(row["start_line"]), "snippet": _make_snippet(row["content"], tokens), "score": score}
+def _chunk_hit(row: sqlite3.Row, tokens: list[str], base_score: float) -> dict:
+    weighted = round(max(0.0001, base_score) * memory_insights.path_priority(row["source"]), 4)
+    return {
+        "source": row["source"], "heading": row["heading"],
+        "start_line": int(row["start_line"]), "snippet": _make_snippet(row["content"], tokens),
+        "score": weighted,
+    }
 
 
 def search_memory(workspace: str | Path, query: str, limit: int = 8) -> list[dict]:
-    """BM25 search via FTS5 with punctuation sanitization and LIKE fallback."""
+    """BM25 search via FTS5 with architectural path weighting and LIKE fallback."""
     tokens = re.findall(r"\w+", query, flags=re.UNICODE)
     if not tokens:
         return []
     db_path = _ensure_indexed(workspace, "docs_chunks")
+    fetch_cap = max(limit * 3, limit)
     with _connect(db_path) as conn:
         if _has_fts5(conn):
             for joiner in (" ", " OR "):
@@ -192,20 +219,27 @@ def search_memory(workspace: str | Path, query: str, limit: int = 8) -> list[dic
                     rows = conn.execute(
                         "SELECT source, heading, start_line, content, bm25(docs_fts) AS rank "
                         "FROM docs_fts WHERE docs_fts MATCH ? ORDER BY rank ASC LIMIT ?",
-                        (joiner.join(f'"{t}"' for t in tokens), limit),
+                        (joiner.join(f'"{t}"' for t in tokens), fetch_cap),
                     ).fetchall()
                 except sqlite3.OperationalError:
                     rows = []
                 if rows:
-                    return [_chunk_hit(r, tokens, round(-float(r["rank"]), 4)) for r in rows]
+                    hits = [_chunk_hit(r, tokens, -float(r["rank"])) for r in rows]
+                    hits.sort(key=lambda h: h["score"], reverse=True)
+                    return hits[:limit]
         where = " OR ".join("(lower(heading) LIKE ? OR lower(content) LIKE ?)" for _ in tokens)
-        params: list[object] = [p for tok in tokens for p in (f"%{tok.lower()}%", f"%{tok.lower()}%")] + [limit]
+        params: list[object] = [p for tok in tokens for p in (f"%{tok.lower()}%", f"%{tok.lower()}%")] + [fetch_cap]
         rows = conn.execute(f"SELECT source, heading, start_line, content FROM docs_chunks WHERE {where} LIMIT ?", params).fetchall()
-        return [_chunk_hit(r, tokens, 1.0) for r in rows]
+        hits = [_chunk_hit(r, tokens, 1.0) for r in rows]
+        hits.sort(key=lambda h: h["score"], reverse=True)
+        return hits[:limit]
 
 
 def _active_shards(mem_dir: Path) -> list[Path]:
-    return sorted(p for p in mem_dir.glob("*.md") if p.name != "MEMORY_INDEX.md" and not p.name.startswith("archive_"))
+    return sorted(
+        p for p in mem_dir.glob("*.md")
+        if p.name not in ("MEMORY_INDEX.md", "LESSONS.md") and not p.name.startswith("archive_")
+    )
 
 
 def _git_info(ws: Path) -> dict[str, str]:
@@ -266,7 +300,7 @@ def checkpoint_state(
     blockers: list[str] | None = None, next_steps: list[str] | None = None,
     note_shard: str = "", note_title: str = "", note_body: str = "", tags: list[str] | None = None,
 ) -> dict:
-    """Update state.json, MEMORY_INDEX.md, optional bounded shard, and re-index."""
+    """Update state.json, MEMORY_INDEX.md, optional bounded shard (with conflict check), and re-index."""
     ws, mem_dir, db_path, state_path, _ = _mem_paths(workspace)
     init_memory(ws)
     state: dict = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
@@ -282,10 +316,12 @@ def checkpoint_state(
     state_path.write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     reindexed: list[str] = []
     shard_path_str = ""
+    conflicts: list[dict] = []
     if note_shard and (note_title or note_body):
         slug = re.sub(r"[^a-z0-9_]+", "_", note_shard.removesuffix(".md").lower()).strip("_") or "active_task"
         shard_path, archive_path = mem_dir / f"{slug}.md", mem_dir / f"archive_{slug}.md"
         prev = shard_path.read_text(encoding="utf-8", errors="replace") if shard_path.exists() else f"# {slug.replace('_', ' ').title()}\n\n"
+        conflicts = memory_insights.detect_shard_conflicts(prev, note_title or "", note_body or "")
         tag_line = f"Tags: {', '.join(tags)}\n" if tags else ""
         entry = f"## {state['updated_at']} — {note_title or 'Note'}\n{tag_line}{(note_body or '').strip()}\n\n"
         shard_path.write_text(prev + ("" if prev.endswith("\n") else "\n") + entry, encoding="utf-8")
@@ -294,34 +330,76 @@ def checkpoint_state(
         reindexed.extend(p.relative_to(ws).as_posix() for p in (shard_path, archive_path) if p.exists())
     index_path = _write_memory_index(mem_dir, db_path, state)
     reindexed.append(index_path.relative_to(ws).as_posix())
-    return {"state_path": str(state_path), "index_path": str(index_path), "shard_path": shard_path_str, "state": state, "reindexed": index_workspace(ws, paths=reindexed)}
+    return {
+        "state_path": str(state_path), "index_path": str(index_path), "shard_path": shard_path_str,
+        "conflicts": conflicts, "state": state, "reindexed": index_workspace(ws, paths=reindexed),
+    }
+
+
+def record_lesson(
+    workspace: str | Path, *, outcome: str, query: str,
+    paths: list[str] | None = None, correction: str = "", created_ts: float | None = None,
+) -> dict:
+    """Record a 30-day decaying lesson (useful/dead_end/corrected) and re-index LESSONS.md."""
+    ws, mem_dir, db_path, _, _ = _mem_paths(workspace)
+    init_memory(ws)
+    with _connect(db_path) as conn:
+        res = memory_insights.record_lesson(conn, mem_dir, outcome, query, paths=paths, correction=correction, created_ts=created_ts)
+    lessons_rel = Path(res["lessons_path"]).relative_to(ws).as_posix()
+    res["reindexed"] = index_workspace(ws, paths=[lessons_rel])
+    return res
+
+
+def list_lessons(
+    workspace: str | Path, *, query: str = "", outcome: str = "",
+    limit: int = 10, now_ts: float | None = None,
+) -> list[dict]:
+    """Query active non-decayed lessons (30-day half-life, weight > 0.1)."""
+    ws, _, db_path, _, _ = _mem_paths(workspace)
+    if not db_path.exists():
+        init_memory(ws)
+    with _connect(db_path) as conn:
+        return memory_insights.query_lessons(conn, query=query, outcome=outcome, limit=limit, now_ts=now_ts)
 
 
 def hydrate_brief(workspace: str | Path, max_chars: int = 650) -> str:
-    """Return compact <= max_chars L2 Memory summary, or '' if uninitialized."""
+    """Return compact <= max_chars L2 Memory summary with active dead-end warnings."""
     _, mem_dir, db_path, state_path, _ = _mem_paths(workspace)
     if not mem_dir.is_dir():
         return ""
     state: dict = json.loads(state_path.read_text(encoding="utf-8", errors="replace")) if state_path.exists() else {}
     sym_cnt = 0
+    avoid_line = ""
     if db_path.exists():
         with _connect(db_path) as conn:
             sym_cnt = conn.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]
+            if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='lessons'").fetchone():
+                avoid_line = memory_insights.hydrate_dead_ends_line(conn)
     shards = [p.stem for p in _active_shards(mem_dir)]
-    brief = "\n".join([
+    lines = [
         f"L2 Memory ({state.get('branch', '-') or '-'}@{state.get('commit', '-') or '-'})",
         f"Task: {state.get('active_task') or '(none)'} [{state.get('status') or 'active'}]",
         f"Tests: {state.get('verified_tests') or '(none)'}",
         f"Blockers: {', '.join(state.get('blockers') or []) or 'none'}",
         f"Next: {', '.join(state.get('next_steps') or []) or 'none'}",
-        f"Symbols: {sym_cnt} | Shards: {', '.join(shards) or 'none'}",
-    ])
+    ]
+    if avoid_line:
+        lines.append(avoid_line)
+    lines.append(f"Symbols: {sym_cnt} | Shards: {', '.join(shards) or 'none'}")
+    brief = "\n".join(lines)
     return brief if len(brief) <= max_chars else brief[: max(0, max_chars - 3)].rstrip() + "..."
+
+
+def _cli_lesson(args: argparse.Namespace) -> object:
+    if args.lesson_cmd == "record":
+        return record_lesson(args.workspace, outcome=args.outcome, query=args.query, paths=args.paths, correction=args.correction)
+    return list_lessons(args.workspace, query=args.query, outcome=args.outcome, limit=args.limit)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Memory Engine CLI")
     parser.add_argument("--workspace", default=".", help="Workspace root directory")
+    parser.add_argument("--format", choices=["json", "toon"], default="json", help="Output format for list commands")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("init")
     sub.add_parser("index").add_argument("--paths", nargs="+", default=None)
@@ -335,6 +413,17 @@ def main(argv: list[str] | None = None) -> int:
     p_chk.add_argument("--blocker", action="append", default=None)
     p_chk.add_argument("--next", dest="next_steps", action="append", default=None)
     p_chk.add_argument("--tag", action="append", default=None)
+    p_les = sub.add_parser("lesson")
+    les_sub = p_les.add_subparsers(dest="lesson_cmd", required=True)
+    p_rec = les_sub.add_parser("record")
+    p_rec.add_argument("--outcome", required=True, choices=list(memory_insights.VALID_OUTCOMES))
+    p_rec.add_argument("--query", required=True)
+    p_rec.add_argument("--path", dest="paths", action="append", default=None)
+    p_rec.add_argument("--correction", default="")
+    p_lst = les_sub.add_parser("list")
+    p_lst.add_argument("--query", default="")
+    p_lst.add_argument("--outcome", default="")
+    p_lst.add_argument("--limit", type=int, default=10)
     sub.add_parser("hydrate").add_argument("--max-chars", type=int, default=650)
     args = parser.parse_args(argv)
     if args.cmd == "hydrate":
@@ -350,8 +439,13 @@ def main(argv: list[str] | None = None) -> int:
             blockers=args.blocker, next_steps=args.next_steps, note_shard=args.shard,
             note_title=args.title, note_body=args.body, tags=args.tag,
         ),
+        "lesson": lambda: _cli_lesson(args),
     }
-    print(json.dumps(dispatch[args.cmd](), indent=2, ensure_ascii=False))
+    res = dispatch[args.cmd]()
+    if args.format == "toon" and isinstance(res, list):
+        print(memory_insights.to_toon(res))
+    else:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
     return 0
 
 

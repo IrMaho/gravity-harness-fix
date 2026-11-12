@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -79,7 +80,7 @@ class FiveLayerMemoryIntegrationTests(unittest.TestCase):
             resps = {r["id"]: r for r in (json.loads(ln) for ln in proc.stdout.splitlines() if ln.strip())}
             self.assertEqual(len(resps), 7)  # notification did not emit a response
             tool_names = {t["name"] for t in resps[2]["result"]["tools"]}
-            self.assertEqual(tool_names, {"memory_hydrate", "symbol_lookup", "memory_search", "memory_checkpoint", "memory_reindex"})
+            self.assertEqual(tool_names, {"memory_hydrate", "symbol_lookup", "memory_search", "memory_checkpoint", "memory_reindex", "memory_lesson"})
 
             sym_payload = json.loads(resps[4]["result"]["content"][0]["text"])
             self.assertFalse(resps[4]["result"]["isError"])
@@ -180,6 +181,116 @@ class FiveLayerMemoryIntegrationTests(unittest.TestCase):
             srv = mcp_cfg["mcpServers"]["gravity-memory"]
             self.assertTrue(Path(srv["args"][-1]).is_file())
             self.assertTrue(srv["args"][-1].endswith("memory_mcp_server.py"))
+
+            # Re-install over existing/locked directory must succeed cleanly and prune stale files
+            stale = gemini_root / "config" / "plugins" / "gravity-harness-fix" / "stale_obsolete.txt"
+            stale.write_text("old", encoding="utf-8")
+            proc2 = subprocess.run(
+                [
+                    sys.executable, "-X", "utf8", str(INSTALLER),
+                    "--gemini-root", str(gemini_root), "--only-explicit",
+                    "--skip-wsl", "--skip-env", "--logs-dir", str(logs_dir),
+                ],
+                capture_output=True, text=True, encoding="utf-8", check=True, timeout=20,
+            )
+            self.assertIn("Live hook smoke test: [PASS]", proc2.stdout)
+            self.assertFalse(stale.exists())
+
+    def test_toon_format_priority_ranking_lessons_decay_and_conflict_detection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp) / "ws"
+            (ws / "lib").mkdir(parents=True)
+            (ws / "tests").mkdir(parents=True)
+            (ws / "lib" / "auth_service.py").write_text(
+                "class AuthService:\n"
+                "    def verify_session_token(self, token: str) -> bool:\n"
+                "        return token.startswith('v1_')\n",
+                encoding="utf-8",
+            )
+            (ws / "tests" / "test_auth_service.py").write_text(
+                "class AuthService:\n"
+                "    def verify_session_token(self, token: str) -> bool:\n"
+                "        return True\n",
+                encoding="utf-8",
+            )
+            reqs = [
+                {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "memory_reindex", "arguments": {"workspace": str(ws)}}},
+                {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "symbol_lookup", "arguments": {"workspace": str(ws), "query": "verify_session_token", "format": "json"}}},
+                {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "symbol_lookup", "arguments": {"workspace": str(ws), "query": "verify_session_token", "format": "toon"}}},
+                {
+                    "jsonrpc": "2.0",
+                    "id": 5,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "memory_lesson",
+                        "arguments": {
+                            "workspace": str(ws),
+                            "action": "record",
+                            "outcome": "dead_end",
+                            "query": "legacy auth",
+                            "paths": ["lib/old_auth.py"],
+                            "correction": "Use lib/auth_service.py instead",
+                        },
+                    },
+                },
+                {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "memory_lesson", "arguments": {"workspace": str(ws), "action": "list", "format": "toon"}}},
+                {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "memory_hydrate", "arguments": {"workspace": str(ws)}}},
+            ]
+            proc = subprocess.run(
+                [sys.executable, "-X", "utf8", str(MCP_SERVER)],
+                input="\n".join(json.dumps(r) for r in reqs) + "\n",
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=True,
+                timeout=15,
+            )
+            resps = {r["id"]: r for r in (json.loads(ln) for ln in proc.stdout.splitlines() if ln.strip())}
+            json_text = resps[3]["result"]["content"][0]["text"]
+            toon_text = resps[4]["result"]["content"][0]["text"]
+            syms = json.loads(json_text)
+            self.assertEqual(syms[0]["file"], "lib/auth_service.py")
+            self.assertTrue(toon_text.startswith("[2]{name,kind,file,start_line,end_line,signature}:"))
+            self.assertLess(len(toon_text), len(json_text))
+
+            # Verify LESSONS.md + Session/Hydrate dead-end injection + 30-day decay filtering
+            self.assertTrue((ws / ".agents" / "memory" / "LESSONS.md").is_file())
+            self.assertIn("Avoid: legacy auth(lib/old_auth.py)", resps[7]["result"]["content"][0]["text"])
+            self.assertIn("dead_end", resps[6]["result"]["content"][0]["text"])
+
+            stale_ts = time.time() - (120.0 * 86400.0)
+            memory_engine.record_lesson(
+                ws,
+                outcome="useful",
+                query="expired lookup",
+                paths=["lib/old.py"],
+                created_ts=stale_ts,
+            )
+            active = memory_engine.list_lessons(ws)
+            self.assertTrue(any(it["query"] == "legacy auth" for it in active))
+            self.assertFalse(any(it["query"] == "expired lookup" for it in active))
+
+            # Search ranks production source ahead of test source
+            search_hits = memory_engine.search_memory(ws, "verify_session_token")
+            self.assertTrue(search_hits and search_hits[0]["source"] == "lib/auth_service.py", f"Got: {search_hits}")
+
+            # Shard conflict detection warns on overlapping decision
+            first = memory_engine.checkpoint_state(
+                ws,
+                note_shard="decisions",
+                note_title="JWT strict prefix validation",
+                note_body="Reject session tokens lacking v1_ prefix in AuthService.",
+            )
+            self.assertEqual(first["conflicts"], [])
+            second = memory_engine.checkpoint_state(
+                ws,
+                note_shard="decisions",
+                note_title="Relax prefix rule in AuthService",
+                note_body="Allow alternate token prefix validation inside AuthService.",
+            )
+            self.assertTrue(second["conflicts"], f"Expected conflict warning, got: {second}")
+            self.assertIn("JWT strict prefix validation", second["conflicts"][0]["existing_heading"])
 
 
 if __name__ == "__main__":

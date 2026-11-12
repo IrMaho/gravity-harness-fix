@@ -90,10 +90,10 @@ Distilled into crisp, zero-bloat Antigravity skills (loaded via progressive disc
 Eliminates repeated file re-reads, manual chunking, and context-compaction amnesia using pure-Python stdlib storage (`SQLite WAL + FTS5`, AST + regex symbol indexing) wired natively via hooks and MCP:
 
 - **`L0` Raw Files (On-Demand Line-Ranged):** `PreToolUse` blocks un-ranged `read_file` calls on source files larger than `260` lines and `2,500` bytes (`big_unranged_read_blocked`), nudging targeted line ranges or [`symbol_lookup`](plugin/mcp/memory_mcp_server.py).
-- **`L1` Symbol Map (Incremental AST + Regex):** `PostToolUse` incrementally refreshes `.agents/memory/memory.db` via [`memory_indexer.py`](plugin/skills/memory-sync/scripts/memory_indexer.py) after file edits so exact `file:start-end` locations stay fresh.
-- **`L2` Compact Index (`<= 60` lines):** [`INDEX.md`](plugin/skills/memory-sync/SKILL.md) capsule (`~400–650` chars) auto-injected at `SessionStart` (`[L2 Memory]`) instead of re-reading logs or large state docs.
+- **`L1` Symbol Map (Incremental AST + Regex + `TOON`):** `PostToolUse` incrementally refreshes `.agents/memory/memory.db` via [`memory_indexer.py`](plugin/skills/memory-sync/scripts/memory_indexer.py); `symbol_lookup` / `memory_search` boost architectural core paths above tests (`0.3x`) and support compact `format="toon"` output.
+- **`L2` Compact Index & Decaying Lessons (`<= 60` lines):** [`MEMORY_INDEX.md`](plugin/skills/memory-sync/SKILL.md) + `memory_lesson` (30-day half-life `LESSONS.md`) auto-inject `[L2 Memory]` and active `Avoid:` dead-end warnings at `SessionStart`.
 - **`L3` Topic Shards (`<= 120` lines each):** Focused `.agents/memory/shards/<topic>.md` files (architecture, decisions, errors, test state) queried via `memory_search` (`FTS5` BM25 with `LIKE` fallback).
-- **`L4` Checkpoint Logs & Auto-Hydration:** `memory_checkpoint` persists compact session handoffs and reminds earlier at `150`-step intervals before heavy compaction hits; [`install_harness.py`](scripts/install_harness.py) auto-wires [`mcp_config.json`](plugin/mcp_config.json) with absolute paths across every profile.
+- **`L4` Checkpoint Logs & Conflict Guard:** `memory_checkpoint` detects overlapping prior shard decisions (`conflicts`), rolls shards `> 120` lines to `archive_<shard>.md`, and reminds at `150`-step intervals; [`install_harness.py`](scripts/install_harness.py) auto-wires [`mcp_config.json`](plugin/mcp_config.json) with absolute paths across every profile.
 
 ### 5. Always-On Telemetry & Doctor Skill ([`gravity-session-doctor`](plugin/skills/gravity-session-doctor/SKILL.md))
 
@@ -165,7 +165,7 @@ gravity-harness-fix/
 ├── plugin/
 │   ├── plugin.json                       # Antigravity native plugin manifest
 │   ├── mcp_config.json                   # Auto-wired stdio MCP config for gravity-memory
-│   ├── mcp/memory_mcp_server.py          # Stdlib JSON-RPC 2.0 MCP server (5 memory tools)
+│   ├── mcp/memory_mcp_server.py          # Stdlib JSON-RPC 2.0 MCP server (6 memory tools + TOON)
 │   ├── hooks.json                        # SessionStart / PreToolUse / PostToolUse / Stop hooks
 │   ├── hooks/guard_and_log.py            # Deterministic guardrails & structured telemetry engine
 │   ├── hooks/run_hook.cmd                # Quote-safe Windows hook launcher
