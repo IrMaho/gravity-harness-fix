@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "gravity-memory": {
+      "command": "python3",
+      "args": [
+        "-X",
+        "utf8",
+        "mcp/memory_mcp_server.py"
+      ],
+      "env": {
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}

@@ -105,6 +105,21 @@ def _configure_installed_hooks(plugin_dest: Path, python_exe: str) -> None:
     hooks_file.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _configure_installed_mcp(plugin_dest: Path, python_exe: str) -> None:
+    """Rewrite installed mcp_config.json with resolved Python and absolute server path."""
+    mcp_file = plugin_dest / "mcp_config.json"
+    if not mcp_file.exists():
+        return
+    data = json.loads(mcp_file.read_text(encoding="utf-8"))
+    servers = data.get("mcpServers")
+    if isinstance(servers, dict):
+        mem_srv = servers.get("gravity-memory")
+        if isinstance(mem_srv, dict):
+            mem_srv["command"] = python_exe
+            mem_srv["args"] = ["-X", "utf8", str(plugin_dest / "mcp" / "memory_mcp_server.py")]
+    mcp_file.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
 def _update_config_json(config_dir: Path, *, enable: bool) -> None:
     cfg_path = config_dir / "config.json"
     data: dict[str, Any] = {}
@@ -267,6 +282,7 @@ def install_all(
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
         )
         _configure_installed_hooks(dest, python_exe)
+        _configure_installed_mcp(dest, python_exe)
 
         harness_cfg = {
             "sourceRepoDir": str(REPO_ROOT),
