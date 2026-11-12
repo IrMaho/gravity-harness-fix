@@ -26,6 +26,48 @@ from typing import Any
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_FILE = PLUGIN_ROOT / "harness_config.json"
 
+_BIG_READ_SOURCE_SUFFIXES = frozenset({
+    ".py", ".dart", ".ts", ".tsx", ".js", ".jsx",
+    ".go", ".rs", ".java", ".kt", ".cpp", ".c", ".h",
+})
+
+
+def _load_memory_engine():
+    """Fail-open lazy import of memory_engine from skills/memory-sync/scripts."""
+    scripts_dir = str(PLUGIN_ROOT / "skills" / "memory-sync" / "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    try:
+        import memory_engine  # type: ignore[import-not-found]
+        return memory_engine
+    except ImportError:
+        return None
+    except Exception:
+        return None
+
+
+def _resolve_memory_workspace(payload: dict[str, Any], raw_fpath: str = "", *, require_db: bool = False) -> Path | None:
+    """Resolve workspace containing .agents/memory (and memory.db if require_db)."""
+    ws_first = str((payload.get("workspacePaths") or [""])[0] or "").strip()
+    if ws_first:
+        cand = Path(ws_first)
+        marker = cand / ".agents" / "memory" / "memory.db" if require_db else cand / ".agents" / "memory"
+        try:
+            if marker.exists():
+                return cand
+        except OSError:
+            pass
+    if raw_fpath:
+        try:
+            cur = Path(raw_fpath).resolve()
+            for parent in (cur, *cur.parents):
+                marker = parent / ".agents" / "memory" / "memory.db" if require_db else parent / ".agents" / "memory"
+                if marker.exists():
+                    return parent
+        except OSError:
+            pass
+    return None
+
 
 def _force_utf8_stdio() -> None:
     for stream in (sys.stdin, sys.stdout, sys.stderr):
@@ -361,9 +403,10 @@ def _handle_pre_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]:
         return {"decision": "allow"}
 
     if tool_name in ("read_file", "view_file"):
-        fpath = _normalize_path(args.get("Path") or args.get("AbsolutePath"))
-        start = str(args.get("StartLine") or "")
-        end = str(args.get("EndLine") or "")
+        raw_path = str(args.get("Path") or args.get("AbsolutePath") or args.get("path") or "").strip().strip('"').strip("'")
+        fpath = _normalize_path(raw_path)
+        start = str(args.get("StartLine") or args.get("start_line") or "").strip()
+        end = str(args.get("EndLine") or args.get("end_line") or "").strip()
         key = f"{fpath}:{start}:{end}"
         recent = state.get("recent_reads", [])
         if fpath and any(
@@ -383,6 +426,40 @@ def _handle_pre_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]:
             )
             _save_state(logs_dir, conv_id, state)
             return {"decision": "deny", "reason": reason}
+
+        if not start and not end and raw_path:
+            target = Path(raw_path)
+            if not target.is_absolute():
+                ws_first = str((payload.get("workspacePaths") or [""])[0] or "").strip()
+                if ws_first:
+                    cand = Path(ws_first) / target
+                    if cand.is_file():
+                        target = cand
+            if target.suffix.lower() in _BIG_READ_SOURCE_SUFFIXES and target.is_file():
+                try:
+                    if target.stat().st_size > 5000:
+                        with target.open("rb") as f:
+                            line_count = sum(1 for _ in f)
+                        if line_count > 260:
+                            reason = (
+                                f"Blocked un-ranged full-file read of {target.name} ({line_count} lines). "
+                                "Use MCP `symbol_lookup` / `memory_search` (or `rg -n`) first, "
+                                "then call `read_file` with explicit `StartLine` and `EndLine` (<= 200 lines)."
+                            )
+                            _append_issue(
+                                logs_dir,
+                                payload,
+                                severity="prevented",
+                                category="big_unranged_read_blocked",
+                                signature=target.name,
+                                detail=reason,
+                                hint="Use symbol_lookup / memory_search (or rg -n) first, then read <= 200 lines with StartLine and EndLine.",
+                                state=state,
+                            )
+                            _save_state(logs_dir, conv_id, state)
+                            return {"decision": "deny", "reason": reason}
+                except OSError:
+                    pass
         return {"decision": "allow"}
 
     if tool_name == "invoke_subagent":
@@ -488,7 +565,8 @@ def _handle_post_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]
                 )
 
     elif tool_name in ("edit_file", "replace_file_content", "multi_replace_file_content", "write_file", "write_to_file"):
-        fpath = _normalize_path(args.get("Path") or args.get("TargetFile"))
+        raw_fpath = str(args.get("Path") or args.get("TargetFile") or args.get("path") or "").strip().strip('"').strip("'")
+        fpath = _normalize_path(raw_fpath)
         if fpath:
             # Invalidate duplicate-read guard cache after file modification
             state["recent_reads"] = [
@@ -509,6 +587,14 @@ def _handle_post_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]
                 )
             else:
                 state.setdefault("edit_error_files", {}).pop(fpath, None)
+                ws = _resolve_memory_workspace(payload, raw_fpath, require_db=True)
+                if ws is not None:
+                    mem = _load_memory_engine()
+                    if mem is not None:
+                        try:
+                            mem.index_workspace(str(ws), paths=[raw_fpath or fpath])
+                        except Exception:
+                            pass
 
     elif tool_name == "run_command":
         cmd = str(args.get("CommandLine") or "")
@@ -542,7 +628,7 @@ def _handle_post_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]
             if "pytest" in low or "unittest" in low:
                 state["last_pytest_failed"] = False
 
-    if step_idx > 0 and step_idx % 300 == 0 and int(state.get("last_bloat_step_logged") or 0) < step_idx:
+    if step_idx > 0 and step_idx % 150 == 0 and int(state.get("last_bloat_step_logged") or 0) < step_idx:
         state["last_bloat_step_logged"] = step_idx
         _append_issue(
             logs_dir,
@@ -551,7 +637,7 @@ def _handle_post_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]
             category="long_session_bloat",
             signature=f"step_{step_idx}",
             detail=f"Session reached {step_idx} steps; compaction/re-read overhead rises rapidly.",
-            hint="Consider wrapping up this checkpoint and starting a fresh focused chat.",
+            hint="Consider running memory_checkpoint (/memory-sync) and continuing in a fresh chat to prevent costly compaction.",
             state=state,
         )
 
@@ -590,6 +676,22 @@ def _handle_session_start(payload: dict[str, Any], logs_dir: Path) -> dict[str, 
         f"Env: {env_summary}. Guardrails active: no polling manage_task, no multiline inline scripts, "
         f"no duplicate reads/blind edit retries, UTF-8 enforced."
     )
+    ws_first = str((payload.get("workspacePaths") or [""])[0] or "").strip()
+    if ws_first:
+        try:
+            has_mem_dir = (Path(ws_first) / ".agents" / "memory").is_dir()
+        except OSError:
+            has_mem_dir = False
+        if has_mem_dir:
+            brief = ""
+            mem = _load_memory_engine()
+            if mem is not None:
+                try:
+                    brief = str(mem.hydrate_brief(ws_first, max_chars=650) or "").strip()
+                except Exception:
+                    brief = ""
+            if brief:
+                msg = f"{msg}\n[L2 Memory] {brief}"
     return {
         "injectSteps": [
             {
