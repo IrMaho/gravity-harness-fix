@@ -76,7 +76,7 @@ def parse_worktree_porcelain(repo: Path) -> list[dict[str, Any]]:
     for item in entries:
         wt_path = Path(item["path"])
         if wt_path.exists():
-            st = _run_git(wt_path, ["status", "--porcelain"], check=False)
+            st = _run_git(wt_path, ["status", "--porcelain", "-uall"], check=False)
             item["dirty"] = bool(st.stdout.strip()) if st.returncode == 0 else False
         else:
             item["missing"] = True
@@ -160,6 +160,106 @@ def cleanup_worktrees(
     return results
 
 
+def rescue_worktrees(
+    repo_arg: str,
+    *,
+    slices: list[str] | None = None,
+    prefix: str = "agile/",
+    commit: bool = True,
+    commit_msg_prefix: str = "chore(rescue): adopt subagent footprint for",
+) -> list[dict[str, Any]]:
+    """Inspect and rescue uncommitted files left behind by interrupted/dropped subagents."""
+    repo = _validate_repo(repo_arg)
+    main_norm = os.path.normcase(str(repo))
+    slice_filter = set(slices) if slices else None
+    results: list[dict[str, Any]] = []
+
+    for item in parse_worktree_porcelain(repo):
+        wt_path = Path(item["path"])
+        branch = item.get("branch", "")
+        if os.path.normcase(str(wt_path)) == main_norm:
+            continue
+        if not branch.startswith(prefix):
+            continue
+        slice_slug = branch.removeprefix(prefix)
+        if slice_filter and slice_slug not in slice_filter:
+            continue
+
+        st = _run_git(wt_path, ["status", "--porcelain", "-uall"], check=False)
+        dirty_lines = [l for l in st.stdout.splitlines() if l.strip()]
+        dirty_files = [l[3:].strip() for l in dirty_lines]
+
+        if dirty_files:
+            if commit:
+                _run_git(wt_path, ["add", "-A"])
+                msg = f"{commit_msg_prefix} {slice_slug}"
+                _run_git(wt_path, ["commit", "-m", msg])
+                head_rev = _run_git(wt_path, ["rev-parse", "--short", "HEAD"]).stdout.strip()
+                results.append({
+                    "slice": slice_slug,
+                    "branch": branch,
+                    "path": str(wt_path),
+                    "status": "rescued_and_committed",
+                    "rescued_files": dirty_files,
+                    "commit": head_rev,
+                })
+            else:
+                results.append({
+                    "slice": slice_slug,
+                    "branch": branch,
+                    "path": str(wt_path),
+                    "status": "dirty_footprint_detected",
+                    "rescued_files": dirty_files,
+                })
+        else:
+            log_proc = _run_git(wt_path, ["log", "-1", "--format=%h %s"], check=False)
+            last_commit = log_proc.stdout.strip() if log_proc.returncode == 0 else ""
+            results.append({
+                "slice": slice_slug,
+                "branch": branch,
+                "path": str(wt_path),
+                "status": "clean",
+                "rescued_files": [],
+                "last_commit": last_commit,
+            })
+    return results
+
+
+def diff_worktrees(
+    repo_arg: str,
+    *,
+    prefix: str = "agile/",
+    stat_only: bool = False,
+    base: str = "HEAD",
+) -> list[dict[str, Any]]:
+    """Inspect active diffs across all agile slice worktrees against a base ref."""
+    repo = _validate_repo(repo_arg)
+    main_norm = os.path.normcase(str(repo))
+    results: list[dict[str, Any]] = []
+
+    for item in parse_worktree_porcelain(repo):
+        wt_path = Path(item["path"])
+        branch = item.get("branch", "")
+        if os.path.normcase(str(wt_path)) == main_norm:
+            continue
+        if not branch.startswith(prefix):
+            continue
+        slice_slug = branch.removeprefix(prefix)
+
+        diff_args = ["diff", "--stat" if stat_only else "--patch", f"{base}...{branch}"]
+        diff_proc = _run_git(repo, diff_args, check=False)
+        st_proc = _run_git(wt_path, ["status", "--short"], check=False)
+
+        results.append({
+            "slice": slice_slug,
+            "branch": branch,
+            "path": str(wt_path),
+            "uncommitted": st_proc.stdout.strip(),
+            "diff": diff_proc.stdout.strip(),
+        })
+    return results
+
+
 def main() -> int:
     _configure_stdio()
     parser = argparse.ArgumentParser(description="Create, list, or clean up sibling git worktrees for parallel tasks.")
@@ -182,6 +282,21 @@ def main() -> int:
     p_clean.add_argument("--force", action="store_true", help="Remove even if worktree has uncommitted changes")
     p_clean.add_argument("--delete-branches", action="store_true", help="Also delete slice branches after removal")
     p_clean.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    p_rescue = sub.add_parser("rescue", help="Rescue and adopt uncommitted files from dropped subagents")
+    p_rescue.add_argument("repo", help="Path inside the target git repository")
+    p_rescue.add_argument("slices", nargs="*", help="Optional slice names to rescue (default: all)")
+    p_rescue.add_argument("--prefix", default="agile/", help="Git branch prefix (default: agile/)")
+    p_rescue.add_argument("--no-commit", dest="commit", action="store_false", help="Detect dirty files without committing")
+    p_rescue.add_argument("--message-prefix", default="chore(rescue): adopt subagent footprint for", help="Commit message prefix")
+    p_rescue.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    p_diff = sub.add_parser("diff", help="Show active diffs across all agile slice worktrees")
+    p_diff.add_argument("repo", help="Path inside the target git repository")
+    p_diff.add_argument("--prefix", default="agile/", help="Git branch prefix (default: agile/)")
+    p_diff.add_argument("--base", default="HEAD", help="Base ref for diff comparison (default: HEAD)")
+    p_diff.add_argument("--stat", dest="stat_only", action="store_true", help="Show diff --stat summary only")
+    p_diff.add_argument("--json", action="store_true", help="Emit JSON output")
 
     args = parser.parse_args()
     try:
@@ -219,6 +334,45 @@ def main() -> int:
                     print("No matching agile worktrees to clean.")
                 for row in out:
                     print(f"[{row['status']}] {row['branch']} | {row['path']}")
+            return 0
+
+        if args.cmd == "rescue":
+            out = rescue_worktrees(
+                args.repo,
+                slices=args.slices or None,
+                prefix=args.prefix,
+                commit=args.commit,
+                commit_msg_prefix=args.message_prefix,
+            )
+            if args.json:
+                print(json.dumps(out, indent=2, ensure_ascii=False))
+            else:
+                if not out:
+                    print("No agile worktrees found to rescue.")
+                for row in out:
+                    files_str = f" ({len(row.get('rescued_files', []))} files)" if row.get("rescued_files") else ""
+                    commit_str = f" [{row.get('commit')}]" if row.get("commit") else ""
+                    print(f"[{row['status']}] {row['branch']}{commit_str}{files_str} | {row['path']}")
+            return 0
+
+        if args.cmd == "diff":
+            out = diff_worktrees(
+                args.repo,
+                prefix=args.prefix,
+                stat_only=args.stat_only,
+                base=args.base,
+            )
+            if args.json:
+                print(json.dumps(out, indent=2, ensure_ascii=False))
+            else:
+                if not out:
+                    print("No agile worktrees found.")
+                for row in out:
+                    print(f"=== {row['branch']} ({row['slice']}) ===")
+                    if row.get("uncommitted"):
+                        print(f"Uncommitted in worktree:\n{row['uncommitted']}")
+                    print(row.get("diff") or "(no committed diff vs base)")
+                    print()
             return 0
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

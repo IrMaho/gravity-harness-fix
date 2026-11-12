@@ -40,20 +40,31 @@ Define a minimal custom subagent once per session (so workers do NOT recursively
 - `EnableSubagentTools`: `False`
 - `SystemPrompt`: Instruct the worker to (a) inspect only target files with `rg -n` / ranged reads, (b) edit strictly within its File Ownership, (c) run only its assigned fast test command, (d) commit cleanly on branch `agile/<slice-slug>` (if in a Git repo), and (e) reply concisely with: **branch name, commit SHA, changed files, and exact test command + observed result**.
 
-Launch **2–3** `invoke_subagent` calls in a **single parallel turn** (`TypeName="agile-worker"`, `Workspace="share"`, `Model="inherit"` — or `Model="flash"` + `TypeName="research"` for parallel diff review / discovery).
+Launch **2–3** `invoke_subagent` calls (`TypeName="agile-worker"`, `Workspace="share"`, `Model="inherit"` — or `Model="flash"` + `TypeName="research"` for parallel diff review / discovery).
+
+> [!TIP]
+> **Staggered Spawning:** If working over proxy/VPN connections prone to socket burst resets, stagger spawns by ~4–6 seconds to prevent burst socket contention on port 443.
 
 **Immediately stop calling tools** after spawning the batch so Antigravity wakes you automatically via `<SYSTEM_MESSAGE>` (never poll `manage_task` or spam `send_message`).
 
-### Step 3: Fast Diff Review & Small-PR Integration
+### Step 3: Fast Diff Review, Zero-Loss Rescue & Small-PR Integration
 
 As workers finish:
 
-1. Verify scope & diff from the parent workspace (since `Workspace="share"` shares `.git`, all worker branches exist right in local Git):
+1. **Zero-Loss Footprint Rescue on Interrupted Workers:**
+   If any subagent encounters an upstream TCP stream drop (`connectex` / socket timeout) or halts before replying, **never scrap the work or restart from scratch**. Workers write directly to their `Workspace="share"` worktree before sending their final message. Run:
+   ```sh
+   python plugin/skills/agile-swarm/scripts/worktree_team.py rescue <repo_path>
+   ```
+   This automatically identifies uncommitted files written by the worker, stages and commits them cleanly (`chore(rescue): adopt subagent footprint for <slice>`), and surfaces the exact files for immediate verification.
+2. Verify scope & diff from the parent workspace (since `Workspace="share"` shares `.git`, all worker branches exist right in local Git):
    ```sh
    git diff --stat HEAD...agile/<slice-slug>
+   # or view all slice diffs at once:
+   python plugin/skills/agile-swarm/scripts/worktree_team.py diff <repo_path> --stat
    ```
-2. Spot-check diffs (or launch one `flash` review pass) for regressions, duplicate helpers, broken imports, or out-of-scope edits.
-3. **Deliver in Clean PR Waves (choose per user intent):**
+3. Spot-check diffs (or launch one `flash` review pass) for regressions, duplicate helpers, broken imports, or out-of-scope edits.
+4. **Deliver in Clean PR Waves (choose per user intent):**
    - **Independent Small PRs:** Push each verified slice branch (`git push -u origin agile/<slice-slug>`) and open focused small PRs one by one so reviewers see rapid progress.
    - **Integrated Feature Branch:** Cleanly `git merge --no-ff agile/<slice-slug>` (or `cherry-pick`) into the main feature branch, resolve interface wiring once, run the integration test suite once, and clean up temporary `agile/*` branches.
 
@@ -61,11 +72,13 @@ As workers finish:
 
 ## Optional Multi-Window / Offloaded-CI Helper
 
-When offloading a slow 15-minute CI gate or opening separate IDE chat tabs manually on clean sibling worktrees, use [worktree_team.py](./scripts/worktree_team.py) (or `agile-worktree.bat` from the `gravity_harnes_fix` root):
+When offloading a slow 15-minute CI gate, checking slice diffs, rescuing interrupted workers, or opening separate IDE chat tabs manually on clean sibling worktrees, use [worktree_team.py](./scripts/worktree_team.py) (or `agile-worktree.bat` from the `gravity_harnes_fix` root):
 
 ```bat
 python plugin/skills/agile-swarm/scripts/worktree_team.py create <repo_path> slice-a slice-b wt-ci
 python plugin/skills/agile-swarm/scripts/worktree_team.py list <repo_path>
+python plugin/skills/agile-swarm/scripts/worktree_team.py diff <repo_path> --stat
+python plugin/skills/agile-swarm/scripts/worktree_team.py rescue <repo_path>
 python plugin/skills/agile-swarm/scripts/worktree_team.py cleanup <repo_path>
 ```
 

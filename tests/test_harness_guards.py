@@ -344,6 +344,42 @@ class InstallerAndAuditorTests(unittest.TestCase):
             self.assertEqual(res2[0]["status"], "removed+branch_deleted")
             self.assertFalse(wt_a.exists())
 
+    def test_worktree_rescue_and_diff(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td) / "demo-repo"
+            repo.mkdir()
+            for cmd in (
+                ["git", "init", "-b", "main"],
+                ["git", "config", "user.name", "Test User"],
+                ["git", "config", "user.email", "test@example.com"],
+            ):
+                subprocess.run(cmd, cwd=repo, check=True, capture_output=True)
+            (repo / "README.md").write_text("# demo\n", encoding="utf-8")
+            subprocess.run(["git", "add", "README.md"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=repo, check=True, capture_output=True)
+
+            worktree_team.create_worktrees(str(repo), ["worker-engine"])
+            wt_path = Path(td) / "demo-repo-wt-worker-engine"
+            self.assertTrue(wt_path.exists())
+
+            # Simulate interrupted subagent leaving code behind without committing
+            (wt_path / "lib").mkdir(parents=True, exist_ok=True)
+            (wt_path / "lib" / "engine.dart").write_text("class Engine {}\n", encoding="utf-8")
+
+            # Rescue detects and commits footprint cleanly
+            rescued = worktree_team.rescue_worktrees(str(repo))
+            self.assertEqual(len(rescued), 1)
+            self.assertEqual(rescued[0]["status"], "rescued_and_committed")
+            self.assertIn("lib/engine.dart", [f.replace("\\", "/") for f in rescued[0]["rescued_files"]])
+
+            # Diff displays committed changes against base
+            diffs = worktree_team.diff_worktrees(str(repo), stat_only=True)
+            self.assertEqual(len(diffs), 1)
+            self.assertIn("lib/engine.dart", diffs[0]["diff"].replace("\\", "/"))
+
+            # Cleanup
+            worktree_team.cleanup_worktrees(str(repo), force=True, delete_branches=True)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -319,7 +319,7 @@ def _handle_pre_tool(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]:
             _save_state(logs_dir, conv_id, state)
             return {"decision": "deny", "reason": reason}
 
-        if os.name == "nt" and "unittest discover -s scripts" in low and not re.search(r"\bwsl(\.exe)?\b", low):
+        if os.name == "nt" and re.search(r"\bunittest\s+discover\s+.*-s\s+['\"]?[^'\"]*scripts\b", low) and not re.search(r"\bwsl(\.exe)?\b", low):
             reason = (
                 "Blocked running POSIX-dependent scripts/test_*.py directly on Windows "
                 "(slow failures). Run inside WSL2 instead."
@@ -723,7 +723,11 @@ def _handle_stop(payload: dict[str, Any], logs_dir: Path) -> dict[str, Any]:
             category=f"session_stop_{term.lower() or 'error'}",
             signature=term or "STOP_ERROR",
             detail=err or f"Session stopped with reason={term}",
-            hint="Review session-issues.jsonl or resume cleanly.",
+            hint=(
+                "Subagent network drop detected. Run worktree_team.py rescue <workspace> to adopt uncommitted worktree footprint without data loss."
+                if any(k in f"{err} {term}".lower() for k in ("connectex", "dial tcp", "stream error", "socket", "timeout", "server restart"))
+                else "Review session-issues.jsonl or resume cleanly."
+            ),
             state=state,
         )
         _save_state(logs_dir, conv_id, state)
