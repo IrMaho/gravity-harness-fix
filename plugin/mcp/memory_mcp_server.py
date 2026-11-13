@@ -103,6 +103,50 @@ TOOLS: list[dict[str, Any]] = [
         },
         ["workspace"],
     ),
+    _tool(
+        "cli_list_accounts",
+        "List all configured Google accounts and profiles (Gravity-2, Gravity-3, Gravity-6, Host, etc.) available for isolated subagent execution.",
+        {},
+        [],
+    ),
+    _tool(
+        "cli_spawn_agent",
+        "Spawn an isolated Antigravity CLI subagent on a specified Google account and workspace/worktree with custom model tier.",
+        {
+            "account": {"type": "string", "description": "Profile name (e.g. 'Gravity-2') or email (e.g. 'irmahodev@gmail.com')."},
+            "task_prompt": {"type": "string", "description": "Detailed task description / instruction for the subagent."},
+            "model": {"type": "string", "default": "gemini-3.8-flash-high", "description": "Model ID to run (gemini-3.8-flash-high, claude-sonnet-4-6, pro)."},
+            "workspace": {"type": "string", "description": "Optional workspace path or dedicated worktree directory."},
+            "title": {"type": "string", "description": "Optional human-readable title for the agent session."},
+        },
+        ["account", "task_prompt"],
+    ),
+    _tool(
+        "cli_send_task",
+        "Send a follow-up task instruction or message to an active CLI subagent.",
+        {
+            "worker_id": {"type": "string", "description": "Worker ID or Conversation ID of the target subagent."},
+            "prompt": {"type": "string", "description": "Message or instruction to send."},
+        },
+        ["worker_id", "prompt"],
+    ),
+    _tool(
+        "cli_get_agent_status",
+        "Inspect the live status, latest model response, error count, and step trajectory of an isolated CLI subagent.",
+        {
+            "worker_id": {"type": "string", "description": "Worker ID or Conversation ID."},
+            "tail_lines": {"type": "integer", "default": 15, "description": "Number of recent transcript lines to inspect."},
+        },
+        ["worker_id"],
+    ),
+    _tool(
+        "cli_terminate_agent",
+        "Terminate an active CLI subagent session and mark its status as terminated.",
+        {
+            "worker_id": {"type": "string", "description": "Worker ID or Conversation ID to terminate."},
+        },
+        ["worker_id"],
+    ),
 ]
 
 
@@ -113,6 +157,12 @@ def _configure_utf8_stdio() -> None:
         if callable(reconf):
             reconf(encoding="utf-8", errors="replace")
 
+
+
+def _ensure_cli_engine() -> None:
+    scripts_dir = PLUGIN_ROOT / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
 
 def _load_memory_engine() -> Any:
     """Lazy-import memory_engine from the sibling memory-sync skill scripts dir."""
@@ -211,6 +261,45 @@ def _call_tool(name: str, args: dict[str, Any]) -> Any:
             context_cockpit.generate_html_cockpit(rep, html_path)
             rep["html_path"] = str(html_path)
         return rep
+
+    if name == "cli_list_accounts":
+        _ensure_cli_engine()
+        import multi_cli_agent_engine
+        return multi_cli_agent_engine.list_accounts()
+
+    if name == "cli_spawn_agent":
+        _ensure_cli_engine()
+        import multi_cli_agent_engine
+        return multi_cli_agent_engine.spawn_cli_agent(
+            account=str(args.get("account") or ""),
+            task_prompt=str(args.get("task_prompt") or ""),
+            model=str(args.get("model") or "gemini-3.8-flash-high"),
+            workspace=args.get("workspace"),
+            title=args.get("title")
+        )
+
+    if name == "cli_send_task":
+        _ensure_cli_engine()
+        import multi_cli_agent_engine
+        return multi_cli_agent_engine.send_cli_task(
+            worker_id_or_conv_id=str(args.get("worker_id") or ""),
+            prompt=str(args.get("prompt") or "")
+        )
+
+    if name == "cli_get_agent_status":
+        _ensure_cli_engine()
+        import multi_cli_agent_engine
+        return multi_cli_agent_engine.get_cli_agent_status(
+            worker_id_or_conv_id=str(args.get("worker_id") or ""),
+            tail_lines=int(args.get("tail_lines") or 15)
+        )
+
+    if name == "cli_terminate_agent":
+        _ensure_cli_engine()
+        import multi_cli_agent_engine
+        return multi_cli_agent_engine.terminate_cli_agent(
+            worker_id_or_conv_id=str(args.get("worker_id") or "")
+        )
 
     raise ValueError(f"Unknown tool: {name}")
 

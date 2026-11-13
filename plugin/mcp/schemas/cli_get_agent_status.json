@@ -1,0 +1,21 @@
+{
+  "name": "cli_get_agent_status",
+  "description": "Inspect the live status, latest model response, error count, and step trajectory of an isolated CLI subagent.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "worker_id": {
+        "type": "string",
+        "description": "Worker ID or Conversation ID."
+      },
+      "tail_lines": {
+        "type": "integer",
+        "default": 15,
+        "description": "Number of recent transcript lines to inspect."
+      }
+    },
+    "required": [
+      "worker_id"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "cli_terminate_agent",
+  "description": "Terminate an active CLI subagent session and mark its status as terminated.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "worker_id": {
+        "type": "string",
+        "description": "Worker ID or Conversation ID to terminate."
+      }
+    },
+    "required": [
+      "worker_id"
+    ]
+  }
+}

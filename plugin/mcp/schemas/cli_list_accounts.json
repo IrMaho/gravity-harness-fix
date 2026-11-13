@@ -1,0 +1,9 @@
+{
+  "name": "cli_list_accounts",
+  "description": "List all configured Google accounts and profiles (Gravity-2, Gravity-3, Gravity-6, Host, etc.) available for isolated subagent execution.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  }
+}

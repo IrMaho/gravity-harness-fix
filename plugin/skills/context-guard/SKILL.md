@@ -101,3 +101,4 @@ When the `[Context Guard: 80% Alert]` fires:
 1. Call `memory_checkpoint` to save task, status, tests, and next steps into `.agents/memory/`.
 2. Run `/compact` to compress the history, OR open a fresh chat.
 3. In the new chat, call `memory_hydrate` (runs in `<3ms`) to instantly resume full project intelligence.
+

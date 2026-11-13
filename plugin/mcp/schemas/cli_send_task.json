@@ -1,0 +1,21 @@
+{
+  "name": "cli_send_task",
+  "description": "Send a follow-up task instruction or message to an active CLI subagent.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "worker_id": {
+        "type": "string",
+        "description": "Worker ID or Conversation ID of the target subagent."
+      },
+      "prompt": {
+        "type": "string",
+        "description": "Message or instruction to send."
+      }
+    },
+    "required": [
+      "worker_id",
+      "prompt"
+    ]
+  }
+}
