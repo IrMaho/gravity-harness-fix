@@ -47,3 +47,4 @@ Gracefully closes the worker and marks it terminated in the central registry.
 3. **Status Check & Turn Resolution:**
    - Use `cli_get_agent_status` to inspect completions or wait for `<SYSTEM_MESSAGE>` notifications.
    - When finished, summarize output and release workers with `cli_terminate_agent`.
+

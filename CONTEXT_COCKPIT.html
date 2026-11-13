@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Antigravity Context Cockpit</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 { font-size: 24px; font-weight: 700; color: #fff; }
+    .time { color: var(--text-muted); font-size: 13px; font-family: monospace; }
+    .alert-banner {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--danger);
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      display: block;
+    }
+    .alert-banner h3 { color: var(--danger); font-size: 16px; margin-bottom: 6px; }
+    .gauge-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .gauge-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .gauge-title { font-size: 18px; font-weight: 600; }
+    .gauge-pct { font-size: 36px; font-weight: 800; color: #ef4444; }
+    .progress-bar-bg {
+      background: #334155;
+      height: 14px;
+      border-radius: 7px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar-fill {
+      background: #ef4444;
+      width: 100.0%;
+      height: 100%;
+      border-radius: 7px;
+      transition: width 0.3s ease;
+    }
+    .thresh-marker {
+      position: absolute;
+      left: 80%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ffffff;
+      opacity: 0.8;
+    }
+    .thresh-label {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .metric-label { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+    .metric-value { font-size: 22px; font-weight: 700; color: #fff; font-family: monospace; }
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+    .isolation-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .slice-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .slice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .slice-path {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .badge.dirty { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+    .badge.clean { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+    .empty-note { color: var(--text-muted); font-size: 14px; text-align: center; padding: 12px; }
+    .action-box {
+      background: #1e1e38;
+      border: 1px solid #4338ca;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .action-box h4 { color: #a5b4fc; margin-bottom: 8px; }
+    .action-box ul { padding-left: 20px; color: #cbd5e1; font-size: 14px; }
+    .action-box li { margin-bottom: 6px; }
+    code { background: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>🛡️ Antigravity Context Cockpit</h1>
+        <div class="time">Conversation: 3e4ccd99-3b3... | Updated: 2026-11-13 00:03:32 UTC</div>
+      </div>
+      <div>🔴 CRITICAL (>80%)</div>
+    </header>
+
+    <div class="alert-banner">
+      <h3>⚠️ High Context Warning (Exceeds 80% Safety Ceiling)</h3>
+      <p>Context above 80% threshold! Snapshot state to L2 (.agents/memory), compact chat (/compact), and offload all coding/testing into isolated subagent worktrees (/agile-swarm).</p>
+    </div>
+
+    <div class="gauge-card">
+      <div class="gauge-header">
+        <div class="gauge-title">Total Context Window Utilization</div>
+        <div class="gauge-pct">126.0%</div>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill"></div>
+        <div class="thresh-marker" title="80% Safety Threshold"></div>
+      </div>
+      <div class="thresh-label">
+        <span>0 tokens</span>
+        <span style="margin-left: 60%;">80% Threshold</span>
+        <span>200,000 max tokens</span>
+      </div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Current Active Tokens</div>
+        <div class="metric-value">252,030</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Input / Output Tokens</div>
+        <div class="metric-value">251,014 / 1,016</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Remaining Safe Budget</div>
+        <div class="metric-value">0</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Total Steps / Compactions</div>
+        <div class="metric-value">4757 / 19</div>
+      </div>
+    </div>
+
+    <div class="section-title">🛡️ Task Context Isolation Matrix</div>
+    <div class="isolation-container">
+      <div class='empty-note'>No isolated task worktrees currently active. All work is concentrated in the main context.</div>
+    </div>
+
+    <div class="action-box">
+      <h4>⚡ Recommended Multi-Context Architecture (How to stay &lt;80%):</h4>
+      <ul>
+        <li><strong>Level 1 (Main Chat Cockpit):</strong> Keep for architecture decisions, review, and user direction. Never dump huge multi-file reads here.</li>
+        <li><strong>Level 2 (Isolated Subagent Worktrees):</strong> Use <code>/agile-swarm</code> with <code>Workspace="share"</code>. Each subagent gets its own clean branch and isolated temporary context.</li>
+        <li><strong>Zero-Loss Safety:</strong> If an isolated subagent is interrupted by network drop, run <code>python .../worktree_team.py rescue .</code> to adopt files without data loss.</li>
+        <li><strong>Level 3 (Handoff Checkpoint):</strong> When main chat hits 80%, persist state via <code>memory_checkpoint</code> and open a fresh chat or type <code>/compact</code>.</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

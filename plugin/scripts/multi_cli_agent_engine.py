@@ -441,3 +441,4 @@ if __name__ == "__main__":
     print(f"Discovered {len(accs)} accounts:")
     for a in accs:
         print(f"  - {a['profile']:12} -> {a['email']} (Current: {a['is_current']})")
+
